@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editor de mapas — Mapa 3D</title>
+  <link rel="stylesheet" href="css/editor.css">
+</head>
+<body>
+  <header id="barra">
+    <strong class="titulo">Editor de mapas</strong>
+    <label>Mapa <select id="selMapa"></select></label>
+    <label>Id <input id="cId" size="14" placeholder="meu_mapa" spellcheck="false"></label>
+    <label>Nome <input id="cNome" size="14" placeholder="Nome na tela"></label>
+    <label title="Local da cidade a que o mapa pertence. Vazio = aparece na lista Mapas.">Local <input id="cLocal" size="9" list="listaLocais" placeholder="(avulso)" spellcheck="false"></label>
+    <span class="espaco"></span>
+    <button id="btnDesfazer" title="Desfazer (Ctrl+Z)">Desfazer</button>
+    <button id="btnSalvar" class="principal" title="Salvar (Ctrl+S)">Salvar</button>
+    <button id="btnVer" title="Salva e abre o mapa em 3D em outra aba">Ver em 3D</button>
+    <button id="btnBaixar" title="Baixa o arquivo do mapa">Baixar</button>
+  </header>
+
+  <aside id="ferramentas" aria-label="Ferramentas"></aside>
+
+  <main id="area">
+    <canvas id="tela"></canvas>
+    <div id="vazio">Escolha um mapa ou envie a imagem de uma planta para começar.</div>
+    <div id="estado" role="status"></div>
+  </main>
+
+  <aside id="lado">
+    <section>
+      <h2>Planta</h2>
+      <label class="linha">Imagem <input id="cImagem" placeholder="assets/interiores/planta.png" spellcheck="false"></label>
+      <label class="linha">Imagem à noite <input id="cImagemNoite" placeholder="(opcional)" spellcheck="false"></label>
+      <label class="arquivo">Enviar imagem da planta <input id="arqImagem" type="file" accept="image/png,image/jpeg,image/webp"></label>
+      <label class="linha" title="Quantos metros vale um pixel da imagem">Escala (m por pixel) <input id="cEscala" type="number" step="0.0001" min="0.0001"></label>
+      <div id="medida" hidden>
+        <p>Trecho medido: <b id="medPx"></b> px. Quanto ele mede de verdade?</p>
+        <label class="linha">Metros <input id="medM" type="number" step="0.05" min="0.05" value="0.9"></label>
+        <button id="btnAplicarEscala">Usar como escala</button>
+      </div>
+    </section>
+    <section>
+      <h2>Acabamento</h2>
+      <label class="linha">Paredes <select id="cAcabamento"><option value="">Lisa (cor)</option><option value="mansao">Papel de parede e lambri</option><option value="tabuas">Tábuas</option><option value="concreto">Concreto</option><option value="pedra">Pedra</option><option value="madeira">Madeira</option><option value="tijolo">Tijolo</option><option value="ruina">Pedra velha (ruína)</option><option value="metal">Metal</option><option value="reboco">Reboco com madeira</option><option value="gelo">Gelo</option></select></label>
+      <label class="linha">Cor da parede <input id="cCorParede" type="color" value="#4b4e52"></label>
+      <label class="linha">Espessura (m) <input id="cEspParede" type="number" step="0.01" min="0.05" value="0.22"></label>
+      <label class="marca"><input id="cTeto" type="checkbox"> Teto</label>
+      <label class="linha">Cor do teto <input id="cCorTeto" type="color" value="#2b1f16"></label>
+      <label class="marca"><input id="cVigas" type="checkbox"> Vigas de madeira</label>
+    </section>
+    <section id="secMovel" hidden>
+      <h2>Móvel a colocar</h2>
+      <select id="selMovel" size="9"></select>
+    </section>
+    <section id="secSel" hidden>
+      <h2 id="selTitulo">Selecionado</h2>
+      <div id="props"></div>
+      <button id="btnApagar" class="perigo">Apagar (Del)</button>
+    </section>
+    <section class="ajuda">
+      <h2>Ajuda</h2>
+      <p>Rolagem: zoom. Espaço + arrastar (ou botão direito): mover a planta.</p>
+      <p>Paredes encaixam nas pontas das outras e ficam retas sozinhas; segure <kbd>Shift</kbd> para ângulo livre.</p>
+      <p>Setas movem o item 1 px (<kbd>Shift</kbd>: 10). <kbd>[</kbd> <kbd>]</kbd> giram o móvel.</p>
+      <p>Formato do arquivo e cuidados: <code>GUIA_DE_MAPAS.md</code>.</p>
+    </section>
+  </aside>
+
+  <datalist id="listaLocais"><option value="base"><option value="mansao"><option value="igreja"><option value="predio"><option value="escola"><option value="radio"><option value="manicomio"><option value="praca"></datalist>
+  <datalist id="listaMapas"></datalist>
+  <script type="module" src="src/editor/editor.js"></script>
+</body>
+</html>

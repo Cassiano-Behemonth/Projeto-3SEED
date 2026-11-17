@@ -1,0 +1,93 @@
+:root {
+  --fundo: rgba(9, 9, 11, 0.86);
+  --borda: rgba(255, 255, 255, 0.09);
+  --texto: #e9e4da;
+  --fraco: #9d968a;
+  --acento: #b3261e;
+  --acento-claro: #e0564c;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #050608; color: var(--texto); font: 13px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; }
+#cena { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+button { font: inherit; color: inherit; cursor: pointer; background: none; border: 1px solid var(--borda); border-radius: 3px; padding: 6px 11px; transition: background 0.15s, border-color 0.15s, color 0.15s; }
+button:hover { background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.22); }
+button:focus-visible { outline: 2px solid var(--acento-claro); outline-offset: 1px; }
+a.botao { color: inherit; text-decoration: none; border: 1px solid var(--borda); border-radius: 3px; padding: 6px 11px; }
+a.botao:hover { background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.22); }
+button.ativo { border-color: var(--acento); color: #fff; background: rgba(179, 38, 30, 0.22); }
+kbd { font: 11px ui-monospace, 'SF Mono', Menlo, monospace; color: var(--fraco); border: 1px solid var(--borda); border-radius: 3px; padding: 0 4px; }
+.ui { transition: opacity 0.25s; }
+body.sem-ui .ui, body.sem-ui #rotulos { opacity: 0; pointer-events: none; }
+
+#topo { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 14px 16px; pointer-events: none; background: linear-gradient(rgba(0, 0, 0, 0.55), transparent); }
+#topo > * { pointer-events: auto; }
+.marca { display: flex; flex-direction: column; }
+.titulo { font: 400 21px/1.1 Georgia, 'Times New Roman', serif; letter-spacing: 0.04em; color: #f3ede1; text-shadow: 0 1px 12px rgba(0, 0, 0, 0.8); }
+.sub { margin-top: 4px; font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--acento-claro); }
+.controles { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; background: var(--fundo); border: 1px solid var(--borda); border-radius: 4px; padding: 6px 8px; }
+.deslizante { display: flex; align-items: center; gap: 8px; color: var(--fraco); font-size: 12px; }
+input[type='range'] { accent-color: var(--acento); width: 96px; }
+
+#locais { position: fixed; top: 76px; left: 16px; display: flex; flex-direction: column; gap: 3px; background: var(--fundo); border: 1px solid var(--borda); border-radius: 4px; padding: 6px; }
+.local { display: flex; align-items: center; gap: 9px; border-color: transparent; text-align: left; padding: 5px 10px 5px 6px; }
+.separador { margin: 6px 6px 2px; padding-top: 6px; border-top: 1px solid var(--borda); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--fraco); }
+.local.ativo { border-color: transparent; background: rgba(179, 38, 30, 0.28); box-shadow: inset 2px 0 0 var(--acento-claro); }
+
+#angulos { position: fixed; bottom: 44px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; background: var(--fundo); border: 1px solid var(--borda); border-radius: 4px; padding: 6px; }
+.chip { padding: 5px 14px; }
+.chip.porta { border-color: rgba(224, 86, 76, 0.55); color: #f0b4ae; }
+#angulos { max-width: calc(100vw - 32px); flex-wrap: wrap; justify-content: center; }
+#veu { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity 0.25s; z-index: 5; }
+#veu.fechado { opacity: 1; }
+
+#painelMonstros { position: fixed; top: 76px; right: 16px; width: 236px; max-height: calc(100vh - 140px); overflow: auto; background: var(--fundo); border: 1px solid var(--borda); border-radius: 4px; padding: 12px; display: none; }
+#painelMonstros.aberto { display: block; }
+#painelMonstros h2 { margin: 0 0 4px; font: 400 15px Georgia, serif; letter-spacing: 0.04em; display: flex; justify-content: space-between; align-items: baseline; }
+#painelMonstros h2 small { font: 11px system-ui, sans-serif; color: var(--fraco); }
+#painelMonstros h3 { margin: 0 0 8px; font-size: 13px; color: var(--acento-claro); }
+.dica { margin: 0 0 10px; color: var(--fraco); font-size: 11.5px; }
+#listaMonstros { display: grid; gap: 3px; }
+.monstro { text-align: left; }
+.monstro.personagem { border-color: rgba(255, 190, 110, 0.5); color: #ffdcae; }
+.linha[hidden], #linhaPose[hidden] { display: none; }
+#linhaPose { margin-top: 10px; }
+select { font: inherit; color: var(--texto); background: #17171a; border: 1px solid var(--borda); border-radius: 3px; padding: 4px 6px; flex: 1; }
+.linha button { padding: 6px 6px; font-size: 12px; }
+#selecionado { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--borda); }
+#selecionado .deslizante { flex-wrap: wrap; justify-content: space-between; }
+#selecionado input[type='range'] { width: 100%; }
+.linha { display: flex; gap: 6px; margin-top: 10px; }
+.linha button { flex: 1; }
+button.perigo:hover { border-color: var(--acento); color: var(--acento-claro); }
+button.discreto { margin-top: 12px; width: 100%; color: var(--fraco); font-size: 12px; }
+
+#ajuda { position: fixed; bottom: 12px; left: 0; right: 0; text-align: center; color: var(--fraco); font-size: 11.5px; text-shadow: 0 1px 4px #000; pointer-events: none; }
+
+#rotulos { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+.rotulo { position: absolute; left: 0; top: 0; pointer-events: auto; white-space: nowrap; padding: 3px 9px; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; background: rgba(8, 8, 10, 0.72); border-color: rgba(255, 255, 255, 0.16); }
+.rotulo::after { content: ''; position: absolute; left: 50%; top: 100%; width: 1px; height: 18px; background: linear-gradient(rgba(255, 255, 255, 0.5), transparent); }
+.rotulo:hover { background: rgba(179, 38, 30, 0.6); border-color: var(--acento-claro); }
+
+.passagem { position: absolute; left: 0; top: 0; pointer-events: auto; display: flex; align-items: center; gap: 6px; padding: 3px; border-radius: 14px; border-color: rgba(255, 210, 150, 0.55); background: rgba(20, 12, 6, 0.7); color: #ffe2b8; font-size: 11px; white-space: nowrap; }
+.passagem i { width: 12px; height: 12px; border: 2px solid #ffcf8a; transform: rotate(45deg); margin: 3px 4px; box-shadow: 0 0 8px rgba(255, 190, 110, 0.8); animation: pulso 1.8s ease-in-out infinite; }
+.passagem span { display: none; padding-right: 8px; letter-spacing: 0.06em; }
+.passagem:hover { background: rgba(120, 60, 20, 0.85); border-color: #ffcf8a; }
+.passagem:hover span { display: inline; }
+@keyframes pulso { 50% { box-shadow: 0 0 2px rgba(255, 190, 110, 0.3); opacity: 0.7; } }
+@media (prefers-reduced-motion: reduce) { .passagem i { animation: none; } }
+body.viajando .ui { opacity: 0; pointer-events: none; }
+
+/* Segunda tela: só a cena. */
+body.tela { cursor: none; }
+body.tela .ui, body.tela #rotulos { display: none; }
+#espera { position: fixed; left: 0; right: 0; bottom: 18px; text-align: center; color: var(--fraco); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; pointer-events: none; text-shadow: 0 1px 4px #000; }
+
+#carregando { position: fixed; inset: 0; display: grid; place-items: center; background: #050608; color: var(--fraco); letter-spacing: 0.2em; text-transform: uppercase; font-size: 11px; transition: opacity 0.6s; z-index: 10; }
+#carregando.some { opacity: 0; pointer-events: none; }
+
+@media (max-width: 720px) {
+  #locais { top: auto; bottom: 92px; left: 8px; right: 8px; flex-direction: row; overflow-x: auto; }
+  .local kbd, #ajuda { display: none; }
+  #painelMonstros { left: 8px; right: 8px; width: auto; top: 110px; }
+  .titulo { font-size: 17px; }
+}

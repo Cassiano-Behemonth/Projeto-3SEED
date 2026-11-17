@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Projeto 3SEED — Mapa 3D</title>
+  <link rel="stylesheet" href="css/estilo.css">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
+  </script>
+</head>
+<body>
+  <canvas id="cena"></canvas>
+  <div id="rotulos"></div>
+
+  <header id="topo" class="ui">
+    <div class="marca">
+      <span class="titulo" id="titulo">Projeto 3SEED</span>
+      <span class="sub" id="subtitulo"></span>
+    </div>
+    <div class="controles">
+      <label class="deslizante" title="Névoa rasteira que deriva com o vento ([ e ] diminuem e aumentam)">Névoa
+        <input id="nevoa" type="range" min="0" max="1" step="0.01" value="0">
+      </label>
+      <label class="deslizante" title="Neblina de distância: o quanto o fundo some">Neblina
+        <input id="neblina" type="range" min="0" max="3" step="0.05" value="1">
+      </label>
+      <button id="btnTempo" title="Alternar dia e noite (N)">Noite</button>
+      <button id="btnRotulos" class="ativo" title="Mostrar nomes dos locais (R)">Rótulos</button>
+      <button id="btnMonstros" title="Criaturas (M)">Criaturas</button>
+      <a id="btnEditor" class="botao" href="editor.html" target="_blank" rel="noopener" title="Abre o editor de mapas em outra aba">Editor</a>
+      <button id="btnTela" title="Abre uma segunda janela só com a cena, sem botões, que acompanha esta (para transmitir ou pôr em outro monitor)">Tela</button>
+    </div>
+  </header>
+
+  <nav id="locais" class="ui" aria-label="Locais"></nav>
+  <div id="angulos" class="ui" aria-label="Ângulos de câmera"></div>
+
+  <aside id="painelMonstros" class="ui">
+    <h2>Personagens e criaturas <small id="contagem"></small></h2>
+    <p class="dica">Clique para colocar no ponto que a câmera está olhando. Arraste a figura para mover.</p>
+    <div id="listaMonstros"></div>
+    <div id="selecionado" hidden>
+      <h3 id="nomeSel"></h3>
+      <label class="deslizante">Altura <span id="alturaTxt"></span>
+        <input id="alturaMonstro" type="range" min="1" max="40" step="0.1">
+      </label>
+      <div class="linha" id="linhaPersonagem" hidden>
+        <button id="btnVirarE" title="Vira o personagem para a esquerda (Z)">⟲ Virar</button>
+        <button id="btnVirarD" title="Vira o personagem para a direita (X)">Virar ⟳</button>
+        <button id="btnLanterna" title="Acende ou apaga a lanterna (L)">Lanterna</button>
+      </div>
+      <label class="deslizante" id="linhaPose" hidden>Pose
+        <select id="selPose"></select>
+      </label>
+      <div class="linha">
+        <button id="btnEnquadrar">Enquadrar</button>
+        <button id="btnOmbro" title="Câmera por cima do ombro desta criatura (O)">Ombro</button>
+        <button id="btnRemover" class="perigo">Remover</button>
+      </div>
+    </div>
+    <button id="btnLimpar" class="discreto">Remover todas</button>
+  </aside>
+
+  <footer id="ajuda" class="ui">
+    <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> mover · <kbd>Q</kbd><kbd>E</kbd> ou botão direito giram · Arrastar move · Rolagem aproxima · <span id="ajuda-locais"><kbd>1</kbd>–<kbd>9</kbd> locais · </span><kbd>C</kbd> ângulo · <kbd>F</kbd> a pé · <kbd>P</kbd> luzes · <kbd>N</kbd> dia/noite · <kbd>[</kbd><kbd>]</kbd> névoa · <kbd>H</kbd> esconder
+  </footer>
+
+  <div id="veu"></div>
+  <div id="carregando"><span>Carregando…</span></div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

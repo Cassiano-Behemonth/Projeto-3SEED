@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Projeto 3SEED — mapas 3D para RPG de mesa</title>
+  <style>
+    :root { --fundo: #0b0b0d; --painel: #141418; --borda: rgba(255, 255, 255, 0.09); --texto: #e9e4da; --fraco: #a39c90; --acento: #b3261e; --acento-claro: #e0564c; }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: var(--fundo); color: var(--texto); font: 16px/1.6 system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    a { color: #f0b4ae; }
+    h1, h2, h3 { font-family: Georgia, 'Times New Roman', serif; font-weight: 400; letter-spacing: 0.02em; line-height: 1.2; }
+    h1 { font-size: clamp(34px, 6vw, 56px); margin: 0; }
+    h2 { font-size: 28px; margin: 0 0 14px; }
+    h3 { font-size: 19px; margin: 22px 0 6px; }
+    p { margin: 0 0 12px; }
+    code, kbd { font: 13px ui-monospace, 'SF Mono', Menlo, monospace; }
+    code { background: rgba(255, 255, 255, 0.06); padding: 1px 5px; border-radius: 3px; }
+    kbd { color: var(--texto); border: 1px solid var(--borda); border-bottom-width: 2px; border-radius: 3px; padding: 0 5px; background: var(--painel); }
+    .faixa { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+    header { position: relative; padding: 70px 0 40px; background: radial-gradient(ellipse at 30% 0%, rgba(179, 38, 30, 0.25), transparent 60%); border-bottom: 1px solid var(--borda); }
+    .sub { margin-top: 6px; font-size: 13px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--acento-claro); }
+    .lide { max-width: 720px; margin: 22px 0 26px; font-size: 18px; color: #d8d2c6; }
+    .botoes { display: flex; flex-wrap: wrap; gap: 10px; }
+    .botao { display: inline-block; text-decoration: none; color: var(--texto); border: 1px solid var(--borda); border-radius: 4px; padding: 10px 18px; background: var(--painel); transition: background 0.15s, border-color 0.15s; }
+    .botao:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.25); }
+    .botao.principal { background: var(--acento); border-color: var(--acento); color: #fff; }
+    .botao.principal:hover { background: #c9372e; }
+    nav.indice { position: sticky; top: 0; z-index: 2; background: rgba(11, 11, 13, 0.92); backdrop-filter: blur(6px); border-bottom: 1px solid var(--borda); }
+    nav.indice .faixa { display: flex; gap: 4px 18px; flex-wrap: wrap; padding-top: 10px; padding-bottom: 10px; font-size: 14px; }
+    nav.indice a { color: var(--fraco); text-decoration: none; }
+    nav.indice a:hover { color: var(--texto); }
+    section { padding: 54px 0; border-bottom: 1px solid var(--borda); }
+    .duas { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .tres { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    figure { margin: 0; }
+    figure img { width: 100%; display: block; border-radius: 4px; border: 1px solid var(--borda); }
+    figcaption { margin-top: 8px; font-size: 14px; color: var(--fraco); }
+    .cartao { background: var(--painel); border: 1px solid var(--borda); border-radius: 6px; padding: 18px 20px; }
+    .cartao h3 { margin-top: 0; }
+    .cartao p:last-child { margin-bottom: 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 15px; }
+    th, td { text-align: left; vertical-align: top; padding: 9px 10px; border-bottom: 1px solid var(--borda); }
+    th { color: var(--fraco); font-weight: 500; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; }
+    ol.passos { counter-reset: p; list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+    ol.passos li { counter-increment: p; position: relative; padding: 10px 14px 10px 50px; background: var(--painel); border: 1px solid var(--borda); border-radius: 6px; }
+    ol.passos li::before { content: counter(p); position: absolute; left: 14px; top: 9px; width: 24px; height: 24px; border-radius: 50%; background: var(--acento); color: #fff; font-size: 13px; display: grid; place-items: center; }
+    .nota { border-left: 3px solid var(--acento-claro); padding: 4px 0 4px 14px; color: #d8d2c6; margin: 16px 0; }
+    #mapas { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+    #mapas a { font-size: 14px; padding: 6px 12px; }
+    #mapas .rotulo { width: 100%; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--fraco); }
+    footer { padding: 30px 0 50px; color: var(--fraco); font-size: 14px; }
+    @media (max-width: 760px) { .duas, .tres { grid-template-columns: 1fr; } header { padding-top: 44px; } th:nth-child(3), td:nth-child(3) { display: none; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="faixa">
+      <h1>Projeto 3SEED</h1>
+      <div class="sub">Mapas 3D para RPG de mesa</div>
+      <p class="lide">Transforma a imagem de uma planta, de um navio ou de uma cidade num mapa 3D para jogar: câmeras de cena, portas que abrem, dia e noite, névoa e uma segunda tela sem interface para os jogadores. Roda no navegador, sem instalar nada além do Python.</p>
+      <div class="botoes">
+        <a class="botao principal" href="index.html">Abrir o programa</a>
+        <a class="botao" href="editor.html">Editor de mapas</a>
+        <a class="botao" href="#criar">Como criar um mapa</a>
+      </div>
+      <div id="mapas"></div>
+    </div>
+  </header>
+
+  <nav class="indice"><div class="faixa">
+    <a href="#o-que-e">O que é</a><a href="#mesa">Na mesa</a><a href="#controles">Controles</a><a href="#criar">Criar um mapa</a>
+    <a href="#imagens">As imagens</a><a href="#passos">Passo a passo</a><a href="#problemas">Problemas comuns</a><a href="#ferramentas">Ferramentas</a><a href="#ler">Para ler</a>
+  </div></nav>
+
+  <section id="o-que-e"><div class="faixa">
+    <h2>O que é</h2>
+    <p>Cada mapa é uma <strong>imagem vista de cima</strong>, que vira o chão, mais um <strong>arquivo</strong> (<code>mapas/&lt;nome&gt;.json</code>) que diz o que fica em 3D por cima dela: paredes, portas, móveis, luzes, prédios, árvores, câmeras e passagens para outros mapas. As posições são lidas na própria imagem, em pixels; os tamanhos são em metros.</p>
+    <div class="duas" style="margin-top: 22px">
+      <figure><img src="docs/imagens/cidade_feudal_planta.jpg" alt="Cidade feudal vista de cima"><figcaption>A imagem vira o chão; prédios, muralhas e árvores sobem em 3D por cima dela.</figcaption></figure>
+      <figure><img src="docs/imagens/base_artica_noite.jpg" alt="Base no Ártico à noite"><figcaption>De noite, as janelas e os postes acendem.</figcaption></figure>
+    </div>
+    <div class="tres" style="margin-top: 22px">
+      <div class="cartao"><h3>Câmeras de cena</h3><p>Cada mapa tem ângulos prontos (a entrada, a praça, o convés) e uma vista de planta. Também dá para andar livre, ou descer "a pé", na altura dos olhos.</p></div>
+      <div class="cartao"><h3>Portas e salas ocultas</h3><p>Cômodos começam escuros e aparecem quando a porta abre. Passagens levam a outro mapa com a animação de uma porta abrindo no escuro.</p></div>
+      <div class="cartao"><h3>Clima</h3><p>Dia, fim de tarde e noite (com lua), névoa rasteira, neblina, luzes que acendem, água que se mexe, neve.</p></div>
+    </div>
+  </div></section>
+
+  <section id="mesa"><div class="faixa">
+    <h2>Na mesa: duas telas</h2>
+    <p>O mestre usa a tela <strong>com interface</strong>: troca de câmera, liga a noite, abre portas, põe criaturas. O botão <strong>Tela</strong> abre uma segunda janela <strong>sem interface</strong>, que repete tudo o que o mestre vê; arraste-a para a TV ou o segundo monitor, para os jogadores.</p>
+    <div class="duas" style="margin-top: 22px">
+      <figure><img src="docs/imagens/navio_com_hud.jpg" alt="Navio com a interface do mestre"><figcaption>Tela do mestre: lista de mapas, câmeras do mapa, névoa, dia e noite, rótulos, criaturas, editor.</figcaption></figure>
+      <figure><img src="docs/imagens/navio_sem_hud.jpg" alt="Navio sem interface"><figcaption>Tela dos jogadores: a mesma cena, sem nada por cima.</figcaption></figure>
+      <figure><img src="docs/imagens/cidade_feudal_com_hud.jpg" alt="Cidade feudal com interface"><figcaption>Com interface.</figcaption></figure>
+      <figure><img src="docs/imagens/cidade_feudal_sem_hud.jpg" alt="Cidade feudal sem interface"><figcaption>Sem interface (também com a tecla <kbd>H</kbd>).</figcaption></figure>
+    </div>
+    <p class="nota">A segunda tela funciona no mesmo computador e no mesmo navegador. Para mostrar em outro aparelho, compartilhe a janela dela numa chamada de vídeo.</p>
+  </div></section>
+
+  <section id="controles"><div class="faixa">
+    <h2>Controles</h2>
+    <table>
+      <tr><th>Tecla</th><th>O que faz</th></tr>
+      <tr><td><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></td><td>Andar (com <kbd>Shift</kbd>, mais rápido)</td></tr>
+      <tr><td><kbd>Q</kbd> <kbd>E</kbd> ou botão direito</td><td>Girar e olhar em volta</td></tr>
+      <tr><td>Arrastar · rolagem</td><td>Mover a vista · aproximar e afastar</td></tr>
+      <tr><td><kbd>Espaço</kbd> · <kbd>Shift</kbd> + <kbd>Espaço</kbd></td><td>Subir · descer a câmera</td></tr>
+      <tr><td><kbd>C</kbd></td><td>Próxima câmera do mapa</td></tr>
+      <tr><td><kbd>F</kbd></td><td>Descer "a pé", na altura dos olhos</td></tr>
+      <tr><td><kbd>N</kbd></td><td>Dia e noite</td></tr>
+      <tr><td><kbd>P</kbd></td><td>Acender e apagar as luzes</td></tr>
+      <tr><td><kbd>T</kbd></td><td>Paredes altas ou baixas (nos interiores)</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>Menos e mais névoa</td></tr>
+      <tr><td><kbd>H</kbd></td><td>Esconder a interface</td></tr>
+      <tr><td>Clique</td><td>Abrir e fechar portas; seguir uma passagem (o marcador na porta de um prédio)</td></tr>
+    </table>
+  </div></section>
+
+  <section id="criar"><div class="faixa">
+    <h2>Como criar um mapa</h2>
+    <p>Há três caminhos. Em todos, o ponto de partida é a imagem: <strong>a qualidade do mapa depende mais das imagens do que de qualquer ferramenta.</strong></p>
+    <div class="tres" style="margin-top: 18px">
+      <div class="cartao"><h3>Pedindo a uma IA</h3><p>Ponha a imagem em <code>assets/interiores/</code> e peça a um assistente de código (como o Claude Code) que crie o mapa. As instruções que ele segue estão em <code>AGENTS.md</code>: conferir a imagem, medir a escala, escrever o arquivo, validar e tirar fotos em 3D. Ele entrega uma primeira versão e diz o que foi chute.</p></div>
+      <div class="cartao"><h3>No editor</h3><p>Abra o <a href="editor.html">editor</a>, envie a imagem, meça a escala com "Medir escala" e desenhe paredes, portas, salas ocultas, móveis, luzes, câmeras, a chegada e as passagens. "Salvar" grava em <code>mapas/</code>; "Ver em 3D" abre o resultado.</p></div>
+      <div class="cartao"><h3>Escrevendo o arquivo</h3><p>Um mapa é um JSON simples. O formato inteiro, campo por campo, está em <code>GUIA_DE_MAPAS.md</code>. Um mapa escrito à mão abre no editor para ajustes, e vice-versa.</p></div>
+    </div>
+    <figure style="margin-top: 22px"><img src="docs/imagens/editor.jpg" alt="Editor de mapas"><figcaption>O editor: ferramentas à esquerda, a planta no meio, as opções do mapa à direita.</figcaption></figure>
+  </div></section>
+
+  <section id="imagens"><div class="faixa">
+    <h2>As imagens de que você precisa</h2>
+    <table>
+      <tr><th>Para</th><th>A imagem</th><th>Onde guardar</th></tr>
+      <tr><td><strong>Um interior</strong><br>casa, escola, bunker, andar de prédio</td><td>A planta vista <strong>reta de cima</strong> (90°), com o piso, os móveis e o topo das paredes, as portas como vãos. Sem rótulos, sem sombras. Uma versão de noite, se quiser, com exatamente o mesmo enquadramento.</td><td><code>assets/interiores/</code></td></tr>
+      <tr><td><strong>Uma cena ao ar livre</strong><br>navio, cais, acampamento, clareira</td><td>A cena vista reta de cima.</td><td><code>assets/interiores/</code></td></tr>
+      <tr><td><strong>Um lugar inteiro</strong><br>cidade, vila, base</td><td>Em camadas: o <strong>chão limpo</strong> (ruas, grama, água e uma laje vazia onde fica cada prédio, nada com altura); uma <strong>folha de cada prédio importante</strong> (frente, lateral, fundos e telhado de cima, lado a lado, sobre fundo liso); e um <strong>atlas de texturas</strong> (tijolo, pedra, telha, grama).</td><td><code>assets/interiores/</code>, <code>assets/predios/</code>, <code>assets/texturas/</code></td></tr>
+    </table>
+    <p class="nota">O <code>README.md</code> traz os pedidos prontos para a IA de imagem (chão limpo, folha de prédio, atlas, interior), já com as exigências que evitam os defeitos mais comuns.</p>
+    <h3>O que não serve</h3>
+    <p>Uma <strong>ilustração</strong>: cena vista de dentro ou de fora, com teto, céu ou ponto de fuga. Como a imagem vira o chão, as paredes e os móveis ficariam pintados deitados. Uma planta <strong>inclinada</strong> (perspectiva) serve depois de endireitada.</p>
+  </div></section>
+
+  <section id="passos"><div class="faixa">
+    <h2>Passo a passo</h2>
+    <ol class="passos">
+      <li><strong>Confira a imagem.</strong> É vista reta de cima? Os móveis têm o mesmo tamanho no alto e no pé da imagem? Tem quadrícula, rosa dos ventos, moldura? Rode <code>python3 ferramentas/grade.py imagem.png /tmp/g.png --passo 100</code> e olhe.</li>
+      <li><strong>Meça a escala:</strong> quantos metros vale um pixel. Meça algo conhecido (porta ≈ 0,9 m, cadeira ≈ 0,45 m, cama ≈ 2 m; ao ar livre, um veículo ou uma casa).</li>
+      <li><strong>Paredes e portas.</strong> Paredes pela linha do meio, ou pelo retângulo que ocupam; o vão de cada porta com 0,8 m ou mais. Na dúvida sobre uma porta, deixe o vão aberto.</li>
+      <li><strong>Salas ocultas</strong> (opcional): cômodos que só aparecem quando a porta abre.</li>
+      <li><strong>Móveis grandes em 3D</strong> por cima dos pintados (mesas, camas, estantes, balcões); os pequenos ficam como pintura. Ao ar livre: prédios, árvores, muros, cercas.</li>
+      <li><strong>Luzes e câmeras.</strong> Poucas luzes, uma por cômodo. Duas ou três câmeras de cena e o ponto de chegada.</li>
+      <li><strong>Passagens</strong> para outros mapas (a porta da frente, a escada), e o mapa na lista <code>mapas/indice_local.json</code> (o editor faz isso sozinho).</li>
+      <li><strong>Valide e fotografe.</strong> <code>python3 ferramentas/validar.py mapas/meu_mapa.json</code> aponta os erros; <code>python3 ferramentas/foto.py mapas/meu_mapa.json /tmp/f.png --camera 1</code> mostra o mapa em 3D sem abrir janela. Repita até ficar bom.</li>
+    </ol>
+  </div></section>
+
+  <section id="problemas"><div class="faixa">
+    <h2>Problemas comuns nas imagens</h2>
+    <table>
+      <tr><th>Problema</th><th>Como aparece</th><th>O que fazer</th></tr>
+      <tr><td>Perspectiva</td><td>O prédio é um trapézio, a parede do fundo aparece em pé, os móveis encolhem para o fundo</td><td><code>endireitar.py</code> com os quatro cantos do piso</td></tr>
+      <tr><td>Quadrícula</td><td>A grade de mapa de batalha por cima do chão</td><td>Peça sem grade, ou tire com <code>quadricula.py</code></td></tr>
+      <tr><td>Pintura menor que o mapa</td><td>O lugar acaba na borda da imagem (só se anda até 2 m além dela)</td><td><code>ampliar.py</code> aumenta o chão em volta, sem mudar a escala</td></tr>
+      <tr><td>Folha em pergaminho</td><td>Moldura, manchas e rótulos em volta das vistas</td><td><code>folha.py --limpar ... --papel</code></td></tr>
+      <tr><td>Fundo sujo na folha</td><td>Pedaços da referência ou névoa em volta do prédio</td><td><code>folha.py --limpar ... --nevoa 6</code></td></tr>
+      <tr><td>Dia e noite desalinhados</td><td>As linhas não continuam de uma faixa para a outra</td><td>Confira com <code>comparar.py</code>; se não baterem, use só o dia</td></tr>
+      <tr><td>Algo pintado que atrapalha</td><td>Uma vela no convés, um rótulo, a rosa dos ventos</td><td><code>apagar.py</code> cobre com um pedaço vizinho do chão</td></tr>
+    </table>
+  </div></section>
+
+  <section id="ferramentas"><div class="faixa">
+    <h2>Ferramentas</h2>
+    <p>Ficam em <code>ferramentas/</code>, usam só o Python padrão e explicam o uso com <code>--help</code>.</p>
+    <table>
+      <tr><th>Ferramenta</th><th>Para que serve</th></tr>
+      <tr><td><code>grade.py</code></td><td>Grade numerada sobre a imagem, para ler as posições</td></tr>
+      <tr><td><code>validar.py</code></td><td>Aponta erros e avisos do arquivo do mapa</td></tr>
+      <tr><td><code>previa.py</code></td><td>Desenha o mapa por cima da imagem, em 2D</td></tr>
+      <tr><td><code>foto.py</code></td><td>Fotografa o mapa em 3D sem abrir janela (precisa do Google Chrome)</td></tr>
+      <tr><td><code>endireitar.py</code></td><td>Endireita uma planta em perspectiva</td></tr>
+      <tr><td><code>quadricula.py</code></td><td>Tira a grade de um mapa de batalha</td></tr>
+      <tr><td><code>ampliar.py</code></td><td>Aumenta o chão em volta da pintura</td></tr>
+      <tr><td><code>folha.py</code></td><td>Acha as vistas de uma folha de prédio e limpa folhas sujas ou em pergaminho</td></tr>
+      <tr><td><code>apagar.py</code></td><td>Remenda a pintura com pedaços dela mesma</td></tr>
+      <tr><td><code>espalhar.py</code></td><td>Espalha árvores onde o chão é verde e postes na calçada</td></tr>
+      <tr><td><code>relevo.py</code></td><td>Ergue em blocos o que tem certa cor (sebes, muretas)</td></tr>
+      <tr><td><code>comparar.py</code></td><td>Confere se dia e noite têm o mesmo enquadramento</td></tr>
+    </table>
+  </div></section>
+
+  <section id="ler"><div class="faixa">
+    <h2>Para ler</h2>
+    <div class="tres">
+      <div class="cartao"><h3><code>README.md</code></h3><p>Como rodar, o que preparar, os pedidos prontos para a IA de imagem e as regras aprendidas fazendo mapas.</p></div>
+      <div class="cartao"><h3><code>GUIA_DE_MAPAS.md</code></h3><p>O formato do arquivo, campo por campo: paredes, portas, plataformas, prédios, folhas, peças do kit, luzes, câmeras.</p></div>
+      <div class="cartao"><h3><code>AGENTS.md</code></h3><p>As instruções para uma IA criar o mapa a partir de uma imagem, com o que conferir antes e o que avisar na entrega.</p></div>
+    </div>
+  </div></section>
+
+  <footer><div class="faixa">
+    Projeto 3SEED · licença MIT · feito com <a href="https://threejs.org">three.js</a>; texturas fotográficas do <a href="https://polyhaven.com">Poly Haven</a> (CC0).
+  </div></footer>
+
+  <script>
+    // Lista só os mapas de exemplo (mapas/indice.json), com um link direto para cada um. Os mapas pessoais
+    // (mapas/indice_local.json) aparecem dentro do programa, não aqui.
+    (async () => {
+      const lugar = document.getElementById('mapas');
+      const nomes = [];
+      try { const r = await fetch('mapas/indice.json', { cache: 'no-store' }); if (r.ok) nomes.push(...((await r.json()).mapas ?? [])); } catch (e) { /* sem índice */ }
+      const mapas = await Promise.all([...new Set(nomes)].map(async (n) => {
+        try { const d = await (await fetch('mapas/' + n, { cache: 'no-store' })).json(); return d.local ? null : { id: d.id, nome: d.nome ?? d.id }; } catch (e) { return null; }
+      }));
+      const lista = mapas.filter(Boolean);
+      if (!lista.length) return;
+      const r = document.createElement('div'); r.className = 'rotulo'; r.textContent = 'Abrir direto num mapa'; lugar.append(r);
+      for (const m of lista) { const a = document.createElement('a'); a.className = 'botao'; a.href = 'index.html?mapa=' + encodeURIComponent(m.id) + '&ang=1&so=1'; a.textContent = m.nome; lugar.append(a); }
+    })();
+  </script>
+</body>
+</html>

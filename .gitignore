@@ -1,0 +1,33 @@
+# Projeto 3SEED: o repositório leva o programa, o editor, as ferramentas, os guias e três mapas de exemplo.
+# A campanha (src/campanha.js e o que ela usa), os mapas pessoais e os sons ficam só na cópia local.
+
+# Campanha (o programa a carrega se src/campanha.js existir)
+src/campanha.js
+src/mundo/cidade.js
+src/mundo/locais/
+src/mundo/interiores/base.js
+src/mundo/interiores/mansao.js
+src/dados/
+HISTORICO.md
+
+# Mapas: só os exemplos públicos; os seus vão em mapas/indice_local.json
+mapas/*
+!mapas/indice.json
+!mapas/navio_pirata.json
+!mapas/base_artica.json
+!mapas/cidade_feudal.json
+
+# Imagens: só as dos exemplos e as texturas fotográficas (Poly Haven, CC0)
+assets/*
+!assets/texturas/
+assets/texturas/*
+!assets/texturas/*.jpg
+!assets/interiores/
+assets/interiores/*
+!assets/interiores/navio_pirata_limpo.png
+!assets/interiores/base_artica_reta.png
+!assets/interiores/cidade_feudal.png
+
+.DS_Store
+__pycache__/
+*.pyc
