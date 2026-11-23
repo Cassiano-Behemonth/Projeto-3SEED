@@ -15,7 +15,9 @@ import { INTERIORES, AMPLIACAO, carregarMapasEmArquivo } from './mundo/interiore
 import { Transicao } from './sistemas/transicao.js';
 import { Portas } from './sistemas/portas.js';
 import { Fisica } from './sistemas/fisica.js';
+import { Desafios } from './sistemas/desafios.js';
 import { iniciarUI } from './ui.js';
+import { iniciarMenuFundo } from './projetor/menu.js';
 import { alturaDoPiso } from './mundo/interiores/formato.js';
 
 // ?tela=1 abre a "segunda tela": só a cena, sem interface nem controles, espelhando a janela do mestre.
@@ -47,12 +49,14 @@ THREE.DefaultLoadingManager.onProgress = (_u, feitos, total) => { carregando.que
 THREE.DefaultLoadingManager.onLoad = () => carregando.classList.add('some');
 
 // A campanha (cidade, locais, criaturas) é opcional: sem src/campanha.js, o programa é só a semente e abre nos mapas.
-// ?mapa=id&so=1 (é como a página inicial abre um mapa): só esse mapa, sem a campanha nem os outros mapas.
+// ?mapa=id&so=1 (é como a página inicial abre um mapa): só esse mapa e os ligados a ele por passagens, sem a cidade
+// nem os outros mapas. Os personagens e as criaturas da campanha continuam no painel: servem em qualquer mapa.
 const SO_MAPA = new URLSearchParams(location.search).get('so') === '1' ? new URLSearchParams(location.search).get('mapa') : null;
-const campanha = SO_MAPA ? null : await import('./campanha.js').catch((e) => { if (!/Failed to fetch|Importing a module script failed|404/.test(String(e))) console.warn('Campanha não carregada:', e); return null; });
-const LOCAIS = campanha?.LOCAIS ?? [], MONSTROS = campanha?.MONSTROS ?? [], PERSONAGENS = campanha?.PERSONAGENS ?? [], HOTSPOTS_CIDADE = campanha?.HOTSPOTS_CIDADE ?? [];
+const doDisco = await import('./campanha.js').catch((e) => { if (!/Failed to fetch|Importing a module script failed|404/.test(String(e))) console.warn('Campanha não carregada:', e); return null; });
+const campanha = SO_MAPA ? null : doDisco;
+const LOCAIS = campanha?.LOCAIS ?? [], MONSTROS = doDisco?.MONSTROS ?? [], PERSONAGENS = doDisco?.PERSONAGENS ?? [], HOTSPOTS_CIDADE = campanha?.HOTSPOTS_CIDADE ?? [];
 if (campanha?.INTERIORES) INTERIORES.push(...campanha.INTERIORES);
-if (campanha?.NOME) { document.title = campanha.NOME + ' — Mapa 3D'; const t = document.getElementById('titulo'); if (t) t.textContent = campanha.NOME; }
+if (doDisco?.NOME) { document.title = doDisco.NOME + ' — Mapa 3D'; const t = document.getElementById('titulo'); if (t) t.textContent = doDisco.NOME; }
 await carregarMapasEmArquivo(SO_MAPA); // os mapas em arquivo entram no registro antes de o mundo ser montado
 const mundo = criarMundo(cena, campanha);
 
@@ -73,7 +77,7 @@ const cameras = new Cameras(camera, controles);
 const nevoa = new Nevoa(cena);
 const transicao = new Transicao();
 const portas = new Portas(camera, canvas, mundo);
-const fisica = new Fisica(mundo, AMPLIACAO);
+const fisica = new Fisica(mundo, AMPLIACAO);const desafios = new Desafios(mundo); // cabanas para montar, fogueira para acender (ver sistemas/desafios.js)
 monstros.restricao = (m, x, z) => fisica.criatura(m, x, z);
 const camAnterior = new THREE.Vector3();
 
@@ -82,6 +86,16 @@ const camAnterior = new THREE.Vector3();
 const alvoRT = new THREE.WebGLRenderTarget(window.innerWidth * PR, window.innerHeight * PR, { type: THREE.HalfFloatType, samples: window.devicePixelRatio > 1.2 ? 2 : 4 });
 const compositor = new EffectComposer(renderizador, alvoRT);
 compositor.addPass(new RenderPass(cena, camera));
+// Limpa pixels inválidos (NaN, infinito ou claro demais para o HalfFloat) antes do bloom: um só deles, espalhado pelo desfoque,
+// vira um retângulo preto que pisca na tela.
+compositor.addPass(new ShaderPass({
+  uniforms: { tDiffuse: { value: null } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `uniform sampler2D tDiffuse; varying vec2 vUv;
+    void main(){ vec4 c = texture2D(tDiffuse, vUv);
+      if (isnan(c.r) || isnan(c.g) || isnan(c.b) || isnan(c.a)) c = vec4(0.0, 0.0, 0.0, 1.0);
+      gl_FragColor = vec4(clamp(c.rgb, 0.0, 48.0), c.a); }`,
+}));
 const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.6, 0.75, 0.9);
 compositor.addPass(bloom);
 const acabamento = new ShaderPass({
@@ -98,7 +112,8 @@ const acabamento = new ShaderPass({
 compositor.addPass(acabamento);
 compositor.addPass(new OutputPass());
 
-const ui = iniciarUI({ SO_MAPA, LOCAIS, MONSTROS, PERSONAGENS, INTERIORES, AMPLIACAO, HOTSPOTS_CIDADE, cameras, ambiente, monstros, camera, controles, nevoa, mundo, transicao, portas });
+const ui = iniciarUI({ SO_MAPA, LOCAIS, MONSTROS, PERSONAGENS, INTERIORES, AMPLIACAO, HOTSPOTS_CIDADE, cameras, ambiente, monstros, camera, controles, nevoa, mundo, transicao, portas, fisica, desafios });
+if (!TELA) iniciarMenuFundo(); // vídeo de fundo na janela do projetor (só aparece se houver assets/videos/fundos.json)
 
 const relogio = new THREE.Clock();
 
@@ -108,24 +123,28 @@ const veuEl = document.getElementById('veu');
 function retrato() {
   const ints = {};
   for (const [id, x] of Object.entries(mundo.interiores)) {
-    ints[id] = { p: x.portas.map((p) => (p.aberta ? 1 : 0)).join(''), s: Object.values(x.salas).map((sl) => (sl.revelada ? 1 : 0)).join(''), h: x.paredes.scale.y };
+    ints[id] = { p: x.portas.map((p) => (p.aberta ? 1 : 0)).join(''), s: Object.values(x.salas).map((sl) => (sl.revelada ? 1 : 0)).join(''), h: x.paredes.scale.y, d: desafios.estado(id) };
   }
   return {
     mapa: mundo.mapaAtual, cam: [...camera.position.toArray(), ...controles.target.toArray()], fov: camera.fov,
-    noite: ambiente.noite, tarde: ambiente.tarde > 0.5, luzes: ambiente.luzes, nevoa: nevoa.alvo, neblina: ambiente.neblinaMult,
-    ints, veu: ui.veuFechado(), trans: transicao.ativa ? { e: transicao.estilo, t: transicao.t } : null,
-    cri: monstros.lista.map((m) => ({ u: m.uid, d: m.def.id, x: m.grupo.position.x, y: m.grupo.position.y, z: m.grupo.position.z, a: m.altura, r: m.rumo ?? 0, p: m.pose ?? '', l: m.acesa ?? false, m: m.mapa })),
+    noite: ambiente.noite, tarde: ambiente.tarde > 0.5, clima: ambiente.clima, luzes: ambiente.luzes, nevoa: nevoa.alvo, neblina: ambiente.neblinaMult,
+    ints, planta: ui.plantaVisivel() ? ui.interiorAtual()?.dados?.imagemPlanta ?? null : null, veu: ui.veuFechado(), trans: transicao.ativa ? { e: transicao.estilo, t: transicao.t } : null,
+    cri: monstros.lista.map((m) => ({ u: m.uid, d: m.def.id, x: m.grupo.position.x, y: m.grupo.position.y, z: m.grupo.position.z, a: m.altura, r: m.rumo ?? 0, p: m.pose ?? '', l: m.acesa ?? false, e: !!(m.fixo && m.espelho), m: m.mapa, oc: m.ocupado ? (m.ocupantes ?? true) : false })),
   };
 }
 const DEFS = Object.fromEntries([...MONSTROS, ...PERSONAGENS].map((d) => [d.id, d]));
 let recebeu = false, telaViva = 0;
-function aplicarRetrato(e) {
-  if (e.mapa !== mundo.mapaAtual) ui.definirMapa(e.mapa);
-  camera.position.fromArray(e.cam, 0); controles.target.fromArray(e.cam, 3); camera.lookAt(controles.target); camera.fov = e.fov;
+// soEstado: ao restaurar o que o mestre deixou ao recarregar a página, aplica tudo menos o mapa, a câmera, o véu e a transição.
+function aplicarRetrato(e, soEstado = false) {
+  if (!soEstado) {
+    if (e.mapa !== mundo.mapaAtual) ui.definirMapa(e.mapa);
+    camera.position.fromArray(e.cam, 0); controles.target.fromArray(e.cam, 3); camera.lookAt(controles.target); camera.fov = e.fov;
+  }
   if (ambiente.noite !== e.noite) ambiente.definir(e.noite, !recebeu);
   // O fim de tarde também vem do mestre: a tecla N o desliga lá, e sem isto a segunda tela ficava com o pôr do sol
   // por cima da noite (nos mapas que abrem em "entardecer").
   if (e.tarde !== undefined && (ambiente.tarde > 0.5) !== e.tarde) ambiente.definirTarde(e.tarde);
+  if (e.clima !== undefined && Math.abs(ambiente.clima - e.clima) > 0.004) ambiente.definirClima(e.clima); // a barra de clima do mestre
   ambiente.luzes = e.luzes;
   if (nevoa.alvo !== e.nevoa) nevoa.definir(e.nevoa);
   if (ambiente.neblinaMult !== e.neblina) ambiente.definirNeblina(e.neblina);
@@ -135,14 +154,15 @@ function aplicarRetrato(e) {
     x.portas.forEach((p, i) => { p.aberta = r.p[i] === '1'; });
     Object.values(x.salas).forEach((sl, i) => { const v = r.s[i] === '1'; if (sl.revelada !== v) { sl.revelada = v; for (const m of sl.malhas) m.visible = true; } });
     x.paredes.scale.y = r.h;
+    if (r.d) desafios.espelhar(id, r.d);
   }
-  veuEl.classList.toggle('fechado', e.veu);
-  if (e.trans) {
+  if (!soEstado) { veuEl.classList.toggle('fechado', e.veu); ui.mostrarPlanta(!!e.planta, e.planta); }
+  if (soEstado) { /* sem transição ao restaurar */ } else if (e.trans) {
     if (!transicao.ativa || transicao.estilo !== e.trans.e) { transicao._montar(e.trans.e); transicao.estilo = e.trans.e; transicao.ativa = true; }
     transicao.t = e.trans.t;
   } else transicao.ativa = false;
   monstros.espelhar(e.cri, DEFS);
-  if (!recebeu) { recebeu = true; document.getElementById('espera')?.remove(); }
+  if (!soEstado && !recebeu) { recebeu = true; document.getElementById('espera')?.remove(); }
 }
 if (TELA) {
   ui.bloquear(); monstros.bloqueado = true; portas.bloqueado = true; controles.enabled = false;
@@ -170,6 +190,36 @@ const mapaInicial = params.get('mapa') ?? params.get('interior') ?? (ui.temCidad
 if (mapaInicial) ui.entrar(mapaInicial, params.get('ang') ? Number(params.get('ang')) : undefined);
 if (params.get('nevoa')) ui.mudarNevoa(Number(params.get('nevoa')));
 if (params.get('ui') === '0') document.body.classList.add('sem-ui');
+// ───── Persistência ─────
+// A janela do mestre guarda o estado (criaturas e objetos, portas, salas, desafios, hora do dia, névoa, luzes) no navegador e o
+// devolve ao recarregar. ?limpo=1 abre sem restaurar. Cada mestre tem o seu, porque fica guardado neste navegador.
+const CHAVE_ESTADO = '3seed-estado-v1';
+if (!TELA && params.get('foto') !== '1') {
+  const salvar = () => { try { const e = retrato(); delete e.cam; localStorage.setItem(CHAVE_ESTADO, JSON.stringify(e)); } catch { /* sem espaço ou bloqueado: segue sem salvar */ } };
+  if (params.get('limpo') !== '1') {
+    try {
+      const guardado = JSON.parse(localStorage.getItem(CHAVE_ESTADO) ?? 'null');
+      if (guardado?.ints) { aplicarRetrato({ ...guardado, cam: [0, 0, 0, 0, 0, 0] }, true); ui.sincronizar(); }
+    } catch (erro) { console.warn('Não consegui restaurar o estado guardado:', erro.message); }
+  }
+  setInterval(salvar, 1500);
+  addEventListener('pagehide', salvar);
+  // Campanha com defeito (imagem que falta, pose que não existe): avisa o mestre, sem atrapalhar. Os detalhes ficam em
+  // conferir.html (ou em ferramentas/validar_campanha.py).
+  if (doDisco) setTimeout(async () => {
+    try {
+      const { conferirCampanha } = await import('./util/conferir_campanha.js');
+      const r = await conferirCampanha(doDisco, { base: '' });
+      if (!r.erros.length) return;
+      console.warn('Problemas na campanha (src/campanha.js):\n' + r.erros.join('\n'));
+      const av = document.createElement('div'); av.className = 'avisoCampanha ui';
+      av.innerHTML = `A campanha tem ${r.erros.length} ${r.erros.length === 1 ? 'problema' : 'problemas'} (uma figura pode não aparecer). <a href="conferir.html" target="_blank">Ver quais</a> <button title="Fechar">×</button>`;
+      av.querySelector('button').addEventListener('click', () => av.remove());
+      document.body.append(av);
+    } catch (e) { console.warn('Não consegui conferir a campanha:', e.message); }
+  }, 4000);
+}
+
 // Modo de foto (?foto=1), usado por ferramentas/foto.py: sem interface nem tela de carregamento, e com a câmera
 // onde se pedir. de=x,y e para=x,y são pixels da planta; altura é em metros acima do piso naquele ponto.
 if (params.get('foto') === '1') {
@@ -321,7 +371,10 @@ function quadro() {
   if (it) {
     const a = controles.target, [ox, , oz] = it.origem, lx = it.limites[0] * AMPLIACAO, lz = it.limites[1] * AMPLIACAO;
     const cx = Math.min(ox + lx, Math.max(ox - lx, a.x)), cz = Math.min(oz + lz, Math.max(oz - lz, a.z));
-    if (cx !== a.x || cz !== a.z) { camera.position.x += cx - a.x; camera.position.z += cz - a.z; a.x = cx; a.z = cz; }
+    // Só o ponto observado é cortado no limite. A câmera só é puxada junto quando ela mesma passaria do limite; senão, com o
+    // olhar longe e raso, o ponto bate na borda antes e desfaz cada passo, e a câmera não chega ao que está dentro do mapa.
+    const fx = camera.position.x < ox - lx || camera.position.x > ox + lx, fz = camera.position.z < oz - lz || camera.position.z > oz + lz;
+    if (cx !== a.x || cz !== a.z) { if (fx) camera.position.x += cx - a.x; if (fz) camera.position.z += cz - a.z; a.x = cx; a.z = cz; }
   }
   // Colisão da câmera com paredes e portas fechadas (quando ela está abaixo do topo das paredes).
   if (it && !cameras.voo) {
@@ -336,6 +389,7 @@ function quadro() {
   // O teto do interior atual aparece só quando a câmera está abaixo dele.
   for (const [id, x] of Object.entries(mundo.interiores)) if (x.teto) x.teto.visible = id === mundo.mapaAtual && camera.position.y < x.paredes.scale.y * AMPLIACAO - 0.15;
   portas.atualizar(dt);
+  desafios.atualizar(dt);
   const dist = camera.position.distanceTo(controles.target);
   camera.near = Math.min(12, Math.max(0.12, dist * 0.02));
   // A pé (câmera baixa e colada no ponto observado) o campo de visão abre, para a sala caber na tela.
@@ -357,4 +411,4 @@ function quadro() {
 quadro();
 
 // Acesso pelo console para depuração.
-window.mapa = { THREE, cena, camera, controles, ambiente, cameras, monstros, mundo, renderizador, ui, LOCAIS, nevoa, transicao, portas, fisica, qualidade, aplicarResolucao, publicar: () => canal?.postMessage(retrato()) };
+window.mapa = { THREE, cena, camera, controles, ambiente, cameras, monstros, mundo, renderizador, ui, LOCAIS, nevoa, transicao, portas, fisica, desafios, qualidade, aplicarResolucao, publicar: () => canal?.postMessage(retrato()) };

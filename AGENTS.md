@@ -4,12 +4,14 @@ Este projeto é uma semente de mapas 3D para RPG de mesa. O que mais se pede a u
 
 **Cidade, vila ou base inteira:** o material certo vem em camadas: o chão limpo visto de cima (sem nada com altura) e uma folha com frente, lateral, fundos e telhado de cada construção importante, mais um atlas de texturas. Se a pessoa só tem uma pintura inclinada, faça o mapa com ela, mas diga na entrega que o resultado melhora muito com essas imagens e mostre os pedidos da seção 2 do `README.md`.
 
+Os comandos abaixo usam `python3`; no Windows, use `py`. As imagens de conferência (grade, prévia, fotos) vão em `rascunho/`, que fica fora do git.
+
 ## Passo 0 — a imagem serve?
 
 Antes de qualquer outra coisa:
 
 1. `file assets/interiores/imagem.png` — confirme que é PNG de verdade (converta se for WebP ou JPEG).
-2. Abra a imagem e rode a grade na imagem inteira: `python3 ferramentas/grade.py assets/interiores/imagem.png /tmp/g.png --passo 100`.
+2. Abra a imagem e rode a grade na imagem inteira: `python3 ferramentas/grade.py assets/interiores/imagem.png rascunho/g.png --passo 100`.
 3. Classifique. Se houver versão de noite, olhe-a também.
 
 | O que você vê | Classificação | O que fazer |
@@ -35,7 +37,7 @@ Antes de qualquer outra coisa:
    - na frente, use a borda de dentro do topo da parede;
    - nas laterais, meça a borda entre a face e o piso em dois pontos visíveis e prolongue a reta;
    - em piso de ladrilho, quatro cruzamentos de ladrilhos que formem um retângulo grande também servem.
-4. `python3 ferramentas/endireitar.py <id>_perspectiva_dia.png <id>_dia.png --cantos X1 Y1 X2 Y2 X3 Y3 X4 Y4 --conferir /tmp/conf.png`. Olhe `conf.png` (os cantos sobre a original) e a saída com a grade: as paredes laterais devem ficar na vertical.
+4. `python3 ferramentas/endireitar.py <id>_perspectiva_dia.png <id>_dia.png --cantos X1 Y1 X2 Y2 X3 Y3 X4 Y4 --conferir rascunho/conf.png`. Olhe `conf.png` (os cantos sobre a original) e a saída com a grade: as paredes laterais devem ficar na vertical.
 5. Confira a profundidade: meça na saída algo redondo ou quadrado no chão (mesa redonda, ladrilho, tapete). Se a largura e a altura forem diferentes, rode de novo com `--esticar`. Até 5% de diferença é aceitável.
 6. Versão de noite: se as originais batiam no passo 1, repita com os mesmos `--cantos` e `--esticar`. Se não batiam, meça os cantos da noite à parte e use o `--encaixar` que a execução da de dia imprimiu. Confira o resultado com `comparar.py`.
 7. Daí em diante, leia todas as posições na imagem endireitada. Ela é uma planta com paredes de face aparente: descreva cada parede pela `faixa` que ela ocupa.
@@ -59,25 +61,25 @@ Nenhuma ferramenta faz essa conferência por você.
 
 ## Passo a passo
 
-1. **Dia e noite.** A versão de noite precisa ter o mesmo enquadramento da de dia: as paredes e os móveis no mesmo lugar do desenho. O tamanho em pixels pode ser outro, desde que a proporção seja a mesma (o programa estica a de noite sobre o mesmo piso). Detalhes a mais (luzes, vultos, manchas) não atrapalham. Confira com `python3 ferramentas/comparar.py dia.png noite.png /tmp/c.png --clarear 2.5` e olhe se as linhas continuam de uma faixa para a outra. Se não continuam, deixe `imagemNoite` de fora e avise.
+1. **Dia e noite.** A versão de noite precisa ter o mesmo enquadramento da de dia: as paredes e os móveis no mesmo lugar do desenho. O tamanho em pixels pode ser outro, desde que a proporção seja a mesma (o programa estica a de noite sobre o mesmo piso). Detalhes a mais (luzes, vultos, manchas) não atrapalham. Confira com `python3 ferramentas/comparar.py dia.png noite.png rascunho/c.png --clarear 2.5` e olhe se as linhas continuam de uma faixa para a outra. Se não continuam, deixe `imagemNoite` de fora e avise.
 2. **Leia a planta com a grade.** A imagem inteira primeiro, depois recortes ampliados, vários por vez:
-   `python3 ferramentas/grade.py assets/interiores/planta.png /tmp/g.png --passo 100`
-   `python3 ferramentas/grade.py assets/interiores/planta.png /tmp/g.png --recorte 0 0 500 400 --recorte 500 0 500 400 --zoom 2 --passo 50`
+   `python3 ferramentas/grade.py assets/interiores/planta.png rascunho/g.png --passo 100`
+   `python3 ferramentas/grade.py assets/interiores/planta.png rascunho/g.png --recorte 0 0 500 400 --recorte 500 0 500 400 --zoom 2 --passo 50`
    Planta escura: acrescente `--clarear 2.5`. Leia as posições na imagem gerada; não estime de cabeça.
 3. **Escala.** Meça móveis e portas (cadeira ≈ 0,45 m, carteira ≈ 0,6 m, porta ≈ 0,9 m, cama de solteiro ≈ 2 m). Se objetos diferentes derem escalas diferentes, móveis e portas valem mais que quadras, ruas e o tamanho do prédio. Se móvel e porta discordarem entre si, fique com um valor entre os dois que deixe os vãos das portas com 0,8 m ou mais. Diga à pessoa o que usou.
 4. **Escreva `mapas/<id>.json`** nesta ordem: plataformas (se houver), paredes externas, paredes internas com os vãos, portas e salas ocultas, móveis grandes, luzes, câmeras, chegada, passagens. O `id` segue `<local>_<parte>` (`escola_terreo`, `predio_andar2`, `igreja_interior`); se a pessoa já nomeou a imagem assim, use o nome dela. Mapa avulso, que não pertence a nenhum local da cidade: omita `local`, o `id` é livre e não precisa de passagem de saída.
-5. **Acrescente o arquivo em `mapas/indice_local.json`** (a lista dos mapas da pessoa; crie com `{"mapas": []}` se não existir). `mapas/indice.json` é só a dos exemplos que vêm com o programa: não mexa nela.
+5. **Acrescente o arquivo em `mapas/indice_local.json`** (a lista dos mapas da pessoa; crie com `{"mapas": []}` se não existir). `mapas/indice.json` é só a dos exemplos que vêm com o programa: não mexa nela. `python3 ferramentas/validar.py --tudo` confere se as listas ficaram certas.
 6. **Valide e olhe o resultado**, repetindo até não haver erro, as peças caírem em cima do desenho e o mapa ficar bom de ver. Leia cada aviso: corrija, ou diga na entrega por que ele ficou.
    `python3 ferramentas/validar.py mapas/<id>.json`
-   `python3 ferramentas/previa.py mapas/<id>.json /tmp/p.png --contorno --sem-rotulos`
-   `python3 ferramentas/foto.py mapas/<id>.json /tmp/f.png --camera 0 --camera 1 --de X Y --para X Y`
+   `python3 ferramentas/previa.py mapas/<id>.json rascunho/p.png --contorno --sem-rotulos`
+   `python3 ferramentas/foto.py mapas/<id>.json rascunho/f.png --camera 0 --camera 1 --de X Y --para X Y`
    `--contorno` mostra a área que cada parede ocupa de verdade, com a planta visível por baixo. A prévia também aceita vários `--recorte` com `--zoom`, como a grade.
    A **foto** é o mapa em 3D de verdade, tirada sem abrir janela (precisa do Chrome instalado). Tire a vista de planta e duas ou três do chão, olhe, e corrija o que estiver feio: peça virada, altura errada, pintura sobrando, lugar escuro. Se não houver Chrome, diga na entrega que não viu o mapa em 3D.
 7. **Entregue dizendo o que é chute.** Liste o que não deu para ler com segurança (em geral: onde ficam as portas, a escala, paredes de vidro) e aponte o editor (`editor.html?mapa=<id>`) para corrigir.
 
 ## Regras
 
-- **Só o arquivo do mapa** (e a imagem endireitada, quando for o caso). Criar um mapa não mexe em `src/`. Se o formato não cobre algo, aproxime com `caixa` e `cilindro` e avise.
+- **Só o arquivo do mapa** (e a imagem endireitada, quando for o caso). Criar um mapa não mexe em `src/`. Se a pessoa pedir uma mudança no programa ou nas ferramentas, rode `python3 ferramentas/testar.py` antes de entregar e diga o resultado. Se o formato não cobre algo, aproxime com `caixa` e `cilindro` e avise.
 - **Posições em pixels da imagem; tamanhos em metros reais.** O programa amplia os interiores na tela, mas isso não muda o que você escreve.
 - **Na dúvida sobre uma porta, deixe o vão aberto.** Interrompa a parede e não crie nem porta nem sala oculta. Um cômodo aberto é melhor que um cômodo preso. Só crie sala oculta quando a planta mostra onde é a porta.
 - **Toda área cercada precisa de entrada.** Vale para salas, quintais, quadras cercadas por grade (grade não abre) e o espaço atrás de um balcão.
@@ -93,11 +95,12 @@ Nenhuma ferramenta faz essa conferência por você.
 - **Poucas luzes.** Uma por cômodo, no meio dele, força entre 0,1 e 0,2. Corredores e salões compridos: uma a cada 8 a 10 m.
 - **Móveis repetidos** (fileiras de carteiras, bancos, camas): gere o arquivo com um script curto, fora da pasta do projeto, em vez de digitar um por um.
 - **Outros mapas.** Se o mapa novo se liga a um que já existe (uma escada entre andares), crie a passagem no mapa novo e diga à pessoa qual passagem falta no outro. Só edite o outro mapa se ela pedir.
+- **Criaturas, personagens e objetos 3D** não são mapas: entram em `src/campanha.js`, com as PNGs recortadas por `figuras.py` e os atlas montados por `objeto.py` (seção 6 do `README.md`). Faça só se a pessoa pedir.
 - **Não invente nomes nem história.** Use os nomes que a pessoa der ou descrições neutras ("sala oeste", "sala 1").
-- **O nome não define o conteúdo.** Siga as imagens. Se o nome não combina com elas (um "Acampamento 4 Lagos" com um lago só), não acrescente nada para combinar com o nome; no máximo, comente uma vez na entrega.
+- **O nome não define o conteúdo.** Siga as imagens. Se o nome não combina com elas (um "Vale dos Três Rios" com um rio só), não acrescente nada para combinar com o nome; no máximo, comente uma vez na entrega.
 - **Quadrícula de mapa de batalha** no chão: tire antes de tudo com `python3 ferramentas/quadricula.py chao.png chao_limpo.png` (`--agua` se sobrar grade clara na água; confira com a grade em recortes ampliados). A rosa dos ventos e os rótulos saem com `apagar.py --ladrilhar`; a moldura, cortando a imagem. Diga à pessoa que pedir a pintura sem grade à IA de imagem dá resultado melhor.
-- **Mapa maior que a pintura** (perseguição, mata em volta, estrada que continua): só se anda até 2 m além da borda da imagem. Aumente o chão com `ampliar.py`, não a escala (com a escala, tudo cresce junto). Para espalhar as partes de um lugar, recorte cada parte da pintura e cole num chão grande com trilhas.
-- **Folha de prédio em pergaminho** (moldura, manchas, rótulos em volta das vistas): `folha.py folha.png --limpar limpa.png --manter <retângulo de cada vista> --papel`. Os vãos presos no desenho (entre pernas, sob mesas) ficam transparentes. Confira se a lateral veio espelhada (`--espelhar`) e se a quarta vista é mesmo o telhado (a ferramenta avisa).
+- **Mapa maior que a pintura** (perseguição, mata em volta, estrada que continua): só se anda até 2 m além da borda da imagem. Aumente o chão com `ampliar.py`, não a escala (com a escala, tudo cresce junto). Para espalhar as partes de um lugar, use `compor.py`: cada parte da pintura vai para um lugar de um chão grande, ligadas por trilhas, e a ferramenta imprime a conta que leva as posições lidas na pintura para o chão novo.
+- **Folha de prédio em pergaminho** (moldura, manchas, rótulos em volta das vistas): `folha.py folha.png --limpar limpa.png --manter <retângulo de cada vista> --papel`. Os vãos presos no desenho (entre pernas, sob mesas) ficam transparentes. Confira se a quarta vista é mesmo o telhado (a ferramenta avisa) e rode `folha.py --alinhar rascunho/a.png` em toda folha: o telhado fica em cima de cada vista, com linhas-guia. Se a chaminé ou a torre só bate com a lateral desvirada, ela veio espelhada (`--espelhar`); se muda de lugar entre as vistas, avise a pessoa, porque vai aparecer repetida no 3D.
 
 ## Conferir no navegador (opcional)
 

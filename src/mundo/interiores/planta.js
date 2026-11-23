@@ -69,6 +69,7 @@ export class Planta {
     this.recortes = { pos: [], uv: [] }; // frentes recortadas pela silhueta (torres e pontas contra o céu)
     this.bal = null; // conjunto que balança (um navio): contorno, peças e paredes próprias
     this.anims = []; // animações das peças (radar que gira, luz que pisca)
+    this.desafios = new Map(); // desafios do mapa (ver desafio()): nome -> peças de antes e de depois
     // Luz vermelha que pisca, compartilhada pelas peças que a usam.
     this.matPisca = new THREE.MeshStandardMaterial({ color: 0x2a0806, emissive: 0xff2a1a, emissiveIntensity: 3 });
     this.anims.push((t) => { this.matPisca.emissiveIntensity = (t * 0.8) % 1 < 0.5 ? 3.2 : 0.15; });
@@ -177,7 +178,7 @@ export class Planta {
 
   // Porta numa abertura da parede, entre dois pontos da planta. A dobradiça fica no primeiro ponto.
   // revela: salas que aparecem quando a porta abre. fixa: porta só de enfeite (ex.: a de entrada).
-  porta(x1, y1, x2, y2, { revela = [], cor = 0x4a2c18, sentido = 1, fixa = false, altura = null, corVerga = null } = {}) {
+  porta(x1, y1, x2, y2, { revela = [], cor = 0x4a2c18, sentido = 1, fixa = false, altura = null, corVerga = null, textura = null, alturaFolha = null } = {}) {
     const ax = this.X(x1), az = this.Z(y1), bx = this.X(x2), bz = this.Z(y2);
     const L = Math.hypot(bx - ax, bz - az), ry = -Math.atan2(bz - az, bx - ax);
     const pivo = new THREE.Group();
@@ -185,15 +186,22 @@ export class Planta {
     const mat = new THREE.MeshStandardMaterial({ color: cor, roughness: 0.7 });
     // As medidas verticais são frações da altura da parede (o grupo das paredes é esticado depois).
     const hf = ALTURA_PORTA / ALTURA_PAREDE;
-    const folha = new THREE.Mesh(new THREE.BoxGeometry(L, hf, 0.07).translate(L / 2, hf / 2, 0), mat);
-    const macaneta = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6).scale(1, 1 / ALTURA_PAREDE, 1).translate(L - 0.12, hf * 0.46, 0), new THREE.MeshStandardMaterial({ color: 0xb08a3a, roughness: 0.4, metalness: 0.9 }));
+    // textura { imagem, rect: [x0, y0, x1, y1] }: a folha da porta é um painel com a arte (recortada pela transparência), da altura alturaFolha (m).
+    let hFolha = hf, folha;
+    if (textura) {
+      hFolha = (alturaFolha ?? ALTURA_PORTA) / ALTURA_PAREDE;
+      const tex = carregador.load(textura.imagem, (t) => { const [x0, y0, x1, y1] = textura.rect, { width: iw, height: ih } = t.image; t.repeat.set((x1 - x0) / iw, (y1 - y0) / ih); t.offset.set(x0 / iw, 1 - y1 / ih); if (textura.espelhar) { t.repeat.x *= -1; t.offset.x = x1 / iw; } });
+      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+      folha = new THREE.Mesh(new THREE.PlaneGeometry(L, hFolha).translate(L / 2, hFolha / 2, 0), new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.8, metalness: 0.2 }));
+    } else folha = new THREE.Mesh(new THREE.BoxGeometry(L, hf, 0.07).translate(L / 2, hf / 2, 0), mat);
+    const macaneta = textura ? new THREE.Group() : new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6).scale(1, 1 / ALTURA_PAREDE, 1).translate(L - 0.12, hf * 0.46, 0), new THREE.MeshStandardMaterial({ color: 0xb08a3a, roughness: 0.4, metalness: 0.9 }));
     folha.castShadow = true;
     pivo.add(folha, macaneta);
     // Verga: fecha o vão entre o topo da porta e o teto.
     // É uma peça solta e marcada como "teto": quem passa por baixo não pode tomá-la por chão (era isso que barrava as criaturas na porta).
     // Vai até o topo da parede onde a porta está (muros baixos têm "altura" própria); se a parede não passa da porta, não há verga.
     const topo = altura ? Math.min(1, altura / ALTURA_PAREDE) : 1;
-    if (topo > hf + 0.01) {
+    if (!textura && topo > hf + 0.01) {
       const verga = new THREE.Mesh(new THREE.BoxGeometry(L, topo - hf, 0.2), new THREE.MeshStandardMaterial({ color: corVerga ?? 0x241811, roughness: 0.9 }));
       verga.position.set((ax + bx) / 2, hf + (topo - hf) / 2, (az + bz) / 2); verga.rotation.y = ry;
       verga.userData.teto = true;
@@ -261,6 +269,27 @@ export class Planta {
     const s = new Construtor();
     fn(s, this.M, this.X(px), this.Z(py), (graus * Math.PI) / 180, o);
     alvo.anexar(s, 0, base, 0, 0);
+  }
+
+  // Desafio (uma cabana para montar, uma fogueira para acender): o que fn constrói vai para um grupo próprio, da fase
+  // "antes" (o material no chão; some quando o desafio é feito) ou "depois" (a barraca montada; aparece). As colisões
+  // criadas dentro dele valem só enquanto o grupo aparece (ver sistemas/desafios.js).
+  desafio(nome, fase, px, py, base, fn) {
+    const d = this._desafio(nome, px, py, base), salvo = { b: this.b, soltos: this.soltos, muros: this.muros.length };
+    this.b = new Construtor(); this.soltos = [];
+    try { fn(); } finally {
+      const g = new THREE.Group();
+      g.add(this.b.construir(), ...this.soltos);
+      d[fase].push(g);
+      d.muros[fase].push(...this.muros.slice(salvo.muros));
+      this.b = salvo.b; this.soltos = salvo.soltos;
+    }
+  }
+  // Luz que acende (ou apaga) com o desafio: o registro da luz, como mundo.luzes o guarda.
+  desafioLuz(nome, fase, px, py, base, luz) { if (luz) this._desafio(nome, px, py, base).luzes[fase].push(luz); }
+  _desafio(nome, px, py, base) {
+    if (!this.desafios.has(nome)) this.desafios.set(nome, { nome, pos: [this.X(px), base, this.Z(py)], antes: [], depois: [], muros: { antes: [], depois: [] }, luzes: { antes: [], depois: [] } });
+    return this.desafios.get(nome);
   }
 
   // Árvore no chão (pinheiro, árvore, palmeira). Uma floresta tem milhares delas: juntas numa malha só, cada raio que
@@ -382,7 +411,7 @@ export class Planta {
   // recebe a arte da sua vista, e os topos recebem a vista do telhado. Torres, empenas e recuos ficam com volume de
   // verdade, sem caixa por trás. Só com "frente", a peça é simétrica (uma torre) ou, com "profundidade" pequena, uma parede.
   // largura (m) é a da frente; a altura sai da proporção da vista de frente; profundidade: da vista lateral, ou dada.
-  folha({ imagem, frente, lado = null, fundos = null, telhado = null, x, y, giro = 0, largura = 20, profundidade = null, altura = null, fatias = 72, tolerancia = 0.11, brilho = 1, colide = true, telhadoFrente = 'baixo', escadas = 'pintadas', base = 0 }) {
+  folha({ imagem, frente, lado = null, fundos = null, telhado = null, x, y, giro = 0, largura = 20, profundidade = null, altura = null, fatias = 72, tolerancia = 0.11, brilho = 1, colide = true, telhadoFrente = 'baixo', escadas = 'pintadas', base = 0, vao = null }) {
     if (!imagem || !Array.isArray(frente)) return;
     const F = frente, S = lado ?? frente, B = fundos ?? frente, T = telhado;
     // altura: só quando o prédio precisa ocupar um terreno largo sem ficar alto demais (a arte é achatada na vertical).
@@ -391,6 +420,8 @@ export class Planta {
     const mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(brilho, brilho, brilho), roughness: 0.9, alphaTest: 0.5, emissive: 0xffffff, emissiveIntensity: 0.22 });
     const malha = new THREE.Mesh(g, mat);
     malha.position.set(this.X(x), base, this.Z(y)); malha.rotation.y = ry; malha.visible = false; malha.castShadow = malha.receiveShadow = true;
+    malha.userData.atravessavel = !colide; // sem colisão, a câmera também não a trata como terreno (ver Fisica.camera)
+    malha.userData.folha = true; // nasce do chão para cima: num desafio, é ela que sobe ao ser montada
     this.soltos.push(malha);
     // as janelas pintadas "acendem" à noite; numa noite escura ("luar" baixo) a fachada brilha menos
     const noiteFachada = 0.4 * (0.3 + 0.7 * Math.min(1, this.luar ?? 1));
@@ -442,9 +473,25 @@ export class Planta {
           quad([x1, y0, zb], [x0, y0, zb], [x0, y1, zb], [x1, y1, zb], [cb(x1), linha(B, t0)], [cb(x0), linha(B, t0)], [cb(x0), linha(B, t1)], [cb(x1), linha(B, t1)]);
           quad([x1, y0, zf], [x1, y0, zb], [x1, y1, zb], [x1, y1, zf], [b0, linha(S, t0)], [b1, linha(S, t0)], [b1, linha(S, t1)], [b0, linha(S, t1)]);
           quad([x0, y0, zb], [x0, y0, zf], [x0, y1, zf], [x0, y1, zb], [b1, linha(S, t0)], [b0, linha(S, t0)], [b0, linha(S, t1)], [b1, linha(S, t1)]);
+          // vao: { de, ate, margem } esvazia o miolo de um trecho maciço (a cabine de uma torre de vigia): entre t = de e
+          // t = ate, as peças que cobrem quase toda a planta ficam só com a casca (parede de "margem" metros), com faces
+          // por dentro, piso (o topo da fatia de baixo) e borda no alto. Postes e peças estreitas ficam como estão.
+          const oco = vao && t0 >= vao.de - 1e-6 && t1 <= vao.ate + 1e-6 && x1 - x0 > 0.6 * W && zf - zb > 0.6 * D;
+          if (oco) {
+            const mx = Math.min(vao.margem ?? 0.3, (x1 - x0) / 3), mz = Math.min(vao.margem ?? 0.3, (zf - zb) / 3), ix0 = x0 + mx, ix1 = x1 - mx, izf = zf - mz, izb = zb + mz;
+            const u0 = [a0, linha(F, t0)], u1 = [a1, linha(F, t0)], u2 = [a1, linha(F, t1)], u3 = [a0, linha(F, t1)];
+            quad([ix1, y0, izf], [ix0, y0, izf], [ix0, y1, izf], [ix1, y1, izf], u1, u0, u3, u2); // parede da frente, vista de dentro
+            quad([ix0, y0, izb], [ix1, y0, izb], [ix1, y1, izb], [ix0, y1, izb], u0, u1, u2, u3);   // parede do fundo
+            quad([ix0, y0, izf], [ix0, y0, izb], [ix0, y1, izb], [ix0, y1, izf], u0, u1, u2, u3);   // lado esquerdo (olha para +x)
+            quad([ix1, y0, izb], [ix1, y0, izf], [ix1, y1, izf], [ix1, y1, izb], u1, u0, u3, u2);   // lado direito
+            if (t1 + 1 / fatias > vao.ate + 1e-6) { // última fatia do trecho: só a borda de cima, o miolo fica aberto
+              const cima = (xa, xb, za, zc) => quad([xa, y1, za], [xb, y1, za], [xb, y1, zc], [xa, y1, zc], u0, u1, u2, u3);
+              cima(x0, x1, zf, izf); cima(x0, x1, izb, zb); cima(x0, ix0, izf, izb); cima(ix1, x1, izf, izb);
+            }
+          } else
           // Só é telhado o topo que fica descoberto. Um ressalto estreito, quase todo debaixo da fatia de cima, leva a
           // cor da própria fachada, senão vira uma linha escura atravessando a parede.
-          if (T && !(coberto(a0, a1, acima[0]) > 0.75 && coberto(b0, b1, acima[1]) > 0.75)) {
+          if (T &&!(coberto(a0, a1, acima[0]) > 0.75 && coberto(b0, b1, acima[1]) > 0.75)) {
             // telhadoFrente: de que lado da vista do telhado fica a frente do prédio (a vista pode vir deitada na folha).
             const fx = (xx) => (xx + W / 2) / W, fz = (zz) => (zz + D / 2) / D, tw = T[2] - T[0], th = T[3] - T[1];
             const pt = telhadoFrente === 'direita' ? (xx, zz) => [T[0] + fz(zz) * tw, T[3] - fx(xx) * th]
@@ -608,6 +655,7 @@ export class Planta {
       this.anims.push(() => { matPredio.emissiveIntensity = matPiso.emissiveIntensity; });
     }
     grupo.add(piso, paredes, ...this.soltos, ...this._malhasDePlataforma(matPiso), ...this._malhasDePredio(matPredio));
+    for (const d of this.desafios.values()) if (d.antes.length + d.depois.length) grupo.add(...d.antes, ...d.depois);
     if (this.matsChao.length) this.anims.push(() => { for (const m of this.matsChao) m.emissiveIntensity = matPiso.emissiveIntensity; });
     if (agua) grupo.add(agua.malha);
     if (this._clima) grupo.add(this._criarClima());
@@ -630,6 +678,6 @@ export class Planta {
     let noite = false;
     const trocar = texNoite ? (f) => { const n = f > 0.5; if (n !== noite) { noite = n; matPiso.map = matPiso.emissiveMap = n ? texNoite : tex; } } : null;
     const anims = this.anims, animar = (t, f) => { if (trocar) trocar(f); if (grupo.visible) for (const a of anims) a(t, f); };
-    return { grupo, paredes, animar, balanco: !!this.bal, portas: this.portas, salas: this.salas, muros: this.muros, teto: this.tetoMalha ?? null, matPiso };
+    return { grupo, paredes, animar, balanco: !!this.bal, portas: this.portas, salas: this.salas, muros: this.muros, teto: this.tetoMalha ?? null, matPiso, desafios: [...this.desafios.values()] };
   }
 }

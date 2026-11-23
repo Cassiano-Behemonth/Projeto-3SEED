@@ -21,10 +21,11 @@ export function criarMundo(cena, campanha = null) {
       M, rng, mundo,
       arvore: () => {},
       // As luzes acompanham a ampliação: mais longe e mais fortes, para iluminar igual.
-      luz: (x, y, z, cor = 0xffc98a, forca = 0.15, raio = 5, alcance = 14) => mundo.luzes.push({ x: ox + x * k, y: oy + y * k, z: oz + z * k, cor, forca: forca * k ** 1.7, raio: raio * k, alcance: alcance * k, poca: 0.7, chao: oy + 0.04 }),
+      // Devolve o registro da luz (um desafio pode acendê-la e apagá-la depois; ver sistemas/desafios.js).
+      luz: (x, y, z, cor = 0xffc98a, forca = 0.15, raio = 5, alcance = 14) => { const l = { x: ox + x * k, y: oy + y * k, z: oz + z * k, cor, forca: forca * k ** 1.7, raio: raio * k, alcance: alcance * k, poca: 0.7, chao: oy + 0.04 }; mundo.luzes.push(l); return l; },
       anim: (fn) => mundo.animacoes.push(fn),
     };
-    const { grupo, paredes, animar, portas, salas, muros, teto, matPiso, balanco } = it.criar(c);
+    const { grupo, paredes, animar, portas, salas, muros, teto, matPiso, balanco, desafios = [] } = it.criar(c);
     if (animar) mundo.animacoes.push(animar);
     grupo.position.set(ox, oy, oz);
     grupo.scale.setScalar(k);
@@ -32,7 +33,7 @@ export function criarMundo(cena, campanha = null) {
     cena.add(grupo);
     mundo.solidos.push(grupo);
     grupo.visible = false; // cada interior é um mapa próprio: só aparece quando se está nele
-    mundo.interiores[it.id] = { grupo, paredes, portas, salas, muros, teto, matPiso, origem: it.origem, aberto: !!it.aberto, balanco: !!balanco };
+    mundo.interiores[it.id] = { grupo, paredes, portas, salas, muros, teto, matPiso, origem: it.origem, aberto: !!it.aberto, balanco: !!balanco, desafios };
   }
 
   if (campanha?.criarArvores) { const arvores = campanha.criarArvores(mundo, M, rng); cena.add(arvores); exterior.push(arvores); }

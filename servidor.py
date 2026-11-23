@@ -2,9 +2,11 @@
 """Servidor local do mapa 3D (sem cache, para as alterações aparecerem ao recarregar).
 
 Uso: python3 servidor.py  ->  abra http://127.0.0.1:5173  (página inicial; o programa fica em /index.html e o editor em /editor.html)
+     python3 servidor.py 5174  ->  numa porta escolhida. Sem número, se a 5173 estiver ocupada por outro programa, ele
+                                   usa a próxima livre e diz qual. (No Windows, troque python3 por py.)
 
 Além de servir os arquivos, aceita dois pedidos do editor de mapas:
-  POST /api/mapa            grava mapas/<id>.json e acrescenta o nome em mapas/indice.json
+  POST /api/mapa            grava mapas/<id>.json e acrescenta o nome em mapas/indice_local.json (a lista dos seus mapas)
   POST /api/imagem?nome=X   grava a imagem enviada em assets/interiores/X
 Só escuta em 127.0.0.1, ou seja, só o próprio computador consegue gravar.
 """
@@ -12,10 +14,11 @@ import http.server
 import json
 import os
 import re
+import socket
 import sys
 from urllib.parse import parse_qs, urlparse
 
-PORTA = int(sys.argv[1]) if len(sys.argv) > 1 else 5173
+PORTA_ESCOLHIDA = int(sys.argv[1]) if len(sys.argv) > 1 else None
 RAIZ = os.path.dirname(os.path.abspath(__file__))
 ID_VALIDO = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 IMAGEM_VALIDA = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,80}\.(png|jpg|jpeg|webp)$")
@@ -84,6 +87,7 @@ class Servidor(http.server.SimpleHTTPRequestHandler):
                 nome = (parse_qs(url.query).get("nome") or [""])[0]
                 if not IMAGEM_VALIDA.match(nome):
                     return self._responder(400, {"erro": "nome de imagem inválido (use letras, números, _ . - e extensão png, jpg ou webp)"})
+                os.makedirs(os.path.join(RAIZ, "assets", "interiores"), exist_ok=True)
                 with open(os.path.join(RAIZ, "assets", "interiores", nome), "wb") as f:
                     f.write(corpo)
                 return self._responder(200, {"ok": True, "caminho": "assets/interiores/" + nome})
@@ -92,8 +96,35 @@ class Servidor(http.server.SimpleHTTPRequestHandler):
         self._responder(404, {"erro": "pedido desconhecido"})
 
 
+class Escuta(http.server.ThreadingHTTPServer):
+    # No Windows, "reaproveitar o endereço" deixa dois programas ouvirem a mesma porta sem erro (e os pedidos vão parar
+    # no outro); lá a porta tem de ser só nossa.
+    allow_reuse_address = os.name != "nt"
+    def server_bind(self):
+        if os.name == "nt" and hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
+
+
+def abrir(porta):
+    try: return Escuta(("127.0.0.1", porta), Servidor)
+    except OSError: return None
+
+
 if __name__ == "__main__":
     os.chdir(RAIZ)
-    with http.server.ThreadingHTTPServer(("127.0.0.1", PORTA), Servidor) as srv:
-        print(f"Projeto 3SEED em http://127.0.0.1:{PORTA}  (página inicial; programa em /index.html, editor em /editor.html; Ctrl+C para encerrar)")
-        srv.serve_forever()
+    if PORTA_ESCOLHIDA is not None:
+        srv = abrir(PORTA_ESCOLHIDA)
+        if srv is None: sys.exit(f"A porta {PORTA_ESCOLHIDA} está ocupada por outro programa. Escolha outra: python3 servidor.py {PORTA_ESCOLHIDA + 1}")
+    else:
+        srv = None
+        for porta in range(5173, 5190):
+            srv = abrir(porta)
+            if srv: break
+            print(f"A porta {porta} está ocupada por outro programa; tentando a próxima.", flush=True)
+        if srv is None: sys.exit("As portas de 5173 a 5189 estão ocupadas. Escolha outra: python3 servidor.py 8080")
+    porta = srv.server_address[1]
+    with srv:
+        print(f"Projeto 3SEED em http://127.0.0.1:{porta}  (página inicial; programa em /index.html, editor em /editor.html; Ctrl+C para encerrar)", flush=True)
+        try: srv.serve_forever()
+        except KeyboardInterrupt: print("Servidor encerrado.")

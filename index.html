@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Projeto 3SEED — Mapa 3D</title>
+  <script>/* registra erros desde o começo (os testes automáticos leem isto; ferramentas/testar.py) */ window.__erros = []; addEventListener('error', (e) => __erros.push(String(e.message || e))); addEventListener('unhandledrejection', (e) => __erros.push(String(e.reason && e.reason.message || e.reason)));</script>
   <link rel="stylesheet" href="css/estilo.css">
   <script type="importmap">
     { "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
@@ -25,11 +26,16 @@
       <label class="deslizante" title="Neblina de distância: o quanto o fundo some">Neblina
         <input id="neblina" type="range" min="0" max="3" step="0.05" value="1">
       </label>
+      <label class="deslizante clima" title="Clima: dia, fim de tarde (no meio) e noite">Dia
+        <input id="clima" type="range" min="0" max="1" step="0.01" value="1" list="climaMarcas">
+        <datalist id="climaMarcas"><option value="0"></option><option value="0.5"></option><option value="1"></option></datalist>Noite
+      </label>
       <button id="btnTempo" title="Alternar dia e noite (N)">Noite</button>
       <button id="btnRotulos" class="ativo" title="Mostrar nomes dos locais (R)">Rótulos</button>
       <button id="btnMonstros" title="Criaturas (M)">Criaturas</button>
       <a id="btnEditor" class="botao" href="editor.html" target="_blank" rel="noopener" title="Abre o editor de mapas em outra aba">Editor</a>
       <button id="btnTela" title="Abre uma segunda janela só com a cena, sem botões, que acompanha esta (para transmitir ou pôr em outro monitor)">Tela</button>
+      <button id="btnFundo" hidden title="Vídeo de fundo numa janela à parte, para o projetor">Fundo</button>
     </div>
   </header>
 
@@ -38,17 +44,19 @@
 
   <aside id="painelMonstros" class="ui">
     <h2>Personagens e criaturas <small id="contagem"></small></h2>
-    <p class="dica">Clique para colocar no ponto que a câmera está olhando. Arraste a figura para mover.</p>
+    <p class="dica">Escolha na lista e clique no mapa, no ponto onde ela deve aparecer. Arraste a figura para mover.</p>
+    <p class="dica" id="dicaColocar" hidden><b>Clique no mapa para colocar.</b> Shift no clique mantém a escolha; Esc cancela.</p>
     <div id="listaMonstros"></div>
     <div id="selecionado" hidden>
       <h3 id="nomeSel"></h3>
       <label class="deslizante">Altura <span id="alturaTxt"></span>
-        <input id="alturaMonstro" type="range" min="1" max="40" step="0.1">
+        <input id="alturaMonstro" type="range" min="0.3" max="40" step="0.1">
       </label>
       <div class="linha" id="linhaPersonagem" hidden>
         <button id="btnVirarE" title="Vira o personagem para a esquerda (Z)">⟲ Virar</button>
         <button id="btnVirarD" title="Vira o personagem para a direita (X)">Virar ⟳</button>
         <button id="btnLanterna" title="Acende ou apaga a lanterna (L)">Lanterna</button>
+        <button id="btnEmbarcar" hidden title="Quem o veículo leva embarca (some do mapa) ou desembarca (aparece em fila ao lado dele)">Embarcar</button>
       </div>
       <label class="deslizante" id="linhaPose" hidden>Pose
         <select id="selPose"></select>
@@ -62,11 +70,30 @@
     <button id="btnLimpar" class="discreto">Remover todas</button>
   </aside>
 
+  <aside id="painelDesafios" class="ui">
+    <h2>Desafios</h2>
+    <p class="dica">O que os jogadores montam ou acendem neste mapa. Com o painel aberto, o nome aparece em cima de cada lugar (só na sua tela).</p>
+    <div id="listaDesafios"></div>
+    <div class="linha">
+      <button id="btnFazerTudo" title="Faz todos os desafios deste mapa">Fazer tudo</button>
+      <button id="btnRecomecar" title="Volta tudo para antes dos desafios (para jogar de novo)">Recomeçar</button>
+    </div>
+  </aside>
+
+  <aside id="painelFundo" class="ui">
+    <h2>Fundo no projetor</h2>
+    <p class="dica" id="estadoProjetor"></p>
+    <div id="listaFundos"></div>
+    <p class="dica" id="dicaRepete"></p>
+    <button id="btnAbrirProjetor" class="discreto">Abrir a janela do projetor</button>
+  </aside>
+
   <footer id="ajuda" class="ui">
-    <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> mover · <kbd>Q</kbd><kbd>E</kbd> ou botão direito giram · Arrastar move · Rolagem aproxima · <span id="ajuda-locais"><kbd>1</kbd>–<kbd>9</kbd> locais · </span><kbd>C</kbd> ângulo · <kbd>F</kbd> a pé · <kbd>P</kbd> luzes · <kbd>N</kbd> dia/noite · <kbd>[</kbd><kbd>]</kbd> névoa · <kbd>H</kbd> esconder
+    <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> mover · <kbd>Q</kbd><kbd>E</kbd> ou botão direito giram · Arrastar move · <kbd>Ctrl</kbd>+arrastar seleciona vários · Rolagem aproxima · <span id="ajuda-locais"><kbd>1</kbd>–<kbd>9</kbd> locais · </span><kbd>C</kbd> ângulo · <kbd>F</kbd> a pé · <kbd>P</kbd> luzes · <kbd>N</kbd> dia/noite · <kbd>[</kbd><kbd>]</kbd> névoa · <kbd>H</kbd> esconder
   </footer>
 
   <div id="veu"></div>
+  <div id="mapaJogadores"><img alt="Mapa dos jogadores"></div>
   <div id="carregando"><span>Carregando…</span></div>
   <script type="module" src="src/main.js"></script>
 </body>

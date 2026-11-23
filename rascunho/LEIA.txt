@@ -1,0 +1,3 @@
+Pasta de rascunho: as imagens de conferência das ferramentas (grade, prévia, fotos, recortes) vão aqui.
+Nada do que se grava nesta pasta vai para o git; pode apagar o que quiser.
+Exemplo: python3 ferramentas/grade.py assets/interiores/planta.png rascunho/g.png --passo 100

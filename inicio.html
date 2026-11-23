@@ -146,14 +146,14 @@
   <section id="passos"><div class="faixa">
     <h2>Passo a passo</h2>
     <ol class="passos">
-      <li><strong>Confira a imagem.</strong> É vista reta de cima? Os móveis têm o mesmo tamanho no alto e no pé da imagem? Tem quadrícula, rosa dos ventos, moldura? Rode <code>python3 ferramentas/grade.py imagem.png /tmp/g.png --passo 100</code> e olhe.</li>
+      <li><strong>Confira a imagem.</strong> É vista reta de cima? Os móveis têm o mesmo tamanho no alto e no pé da imagem? Tem quadrícula, rosa dos ventos, moldura? Rode <code>python3 ferramentas/grade.py imagem.png rascunho/g.png --passo 100</code> e olhe.</li>
       <li><strong>Meça a escala:</strong> quantos metros vale um pixel. Meça algo conhecido (porta ≈ 0,9 m, cadeira ≈ 0,45 m, cama ≈ 2 m; ao ar livre, um veículo ou uma casa).</li>
       <li><strong>Paredes e portas.</strong> Paredes pela linha do meio, ou pelo retângulo que ocupam; o vão de cada porta com 0,8 m ou mais. Na dúvida sobre uma porta, deixe o vão aberto.</li>
       <li><strong>Salas ocultas</strong> (opcional): cômodos que só aparecem quando a porta abre.</li>
       <li><strong>Móveis grandes em 3D</strong> por cima dos pintados (mesas, camas, estantes, balcões); os pequenos ficam como pintura. Ao ar livre: prédios, árvores, muros, cercas.</li>
       <li><strong>Luzes e câmeras.</strong> Poucas luzes, uma por cômodo. Duas ou três câmeras de cena e o ponto de chegada.</li>
       <li><strong>Passagens</strong> para outros mapas (a porta da frente, a escada), e o mapa na lista <code>mapas/indice_local.json</code> (o editor faz isso sozinho).</li>
-      <li><strong>Valide e fotografe.</strong> <code>python3 ferramentas/validar.py mapas/meu_mapa.json</code> aponta os erros; <code>python3 ferramentas/foto.py mapas/meu_mapa.json /tmp/f.png --camera 1</code> mostra o mapa em 3D sem abrir janela. Repita até ficar bom.</li>
+      <li><strong>Valide e fotografe.</strong> <code>python3 ferramentas/validar.py mapas/meu_mapa.json</code> aponta os erros; <code>python3 ferramentas/foto.py mapas/meu_mapa.json rascunho/f.png --camera 1</code> mostra o mapa em 3D sem abrir janela. Repita até ficar bom.</li>
     </ol>
   </div></section>
 
@@ -163,7 +163,8 @@
       <tr><th>Problema</th><th>Como aparece</th><th>O que fazer</th></tr>
       <tr><td>Perspectiva</td><td>O prédio é um trapézio, a parede do fundo aparece em pé, os móveis encolhem para o fundo</td><td><code>endireitar.py</code> com os quatro cantos do piso</td></tr>
       <tr><td>Quadrícula</td><td>A grade de mapa de batalha por cima do chão</td><td>Peça sem grade, ou tire com <code>quadricula.py</code></td></tr>
-      <tr><td>Pintura menor que o mapa</td><td>O lugar acaba na borda da imagem (só se anda até 2 m além dela)</td><td><code>ampliar.py</code> aumenta o chão em volta, sem mudar a escala</td></tr>
+      <tr><td>Pintura menor que o mapa</td><td>O lugar acaba na borda da imagem (só se anda até 2 m além dela)</td><td><code>ampliar.py</code> aumenta o chão em volta, sem mudar a escala; <code>compor.py</code> espalha as partes num chão grande, com trilhas</td></tr>
+      <tr><td>Lateral espelhada, chaminé fora do lugar</td><td>Na folha, a varanda ou a chaminé fica de um lado numa vista e do outro em outra</td><td><code>folha.py --alinhar</code> mostra; <code>folha.py --limpar ... --espelhar</code> desvira</td></tr>
       <tr><td>Folha em pergaminho</td><td>Moldura, manchas e rótulos em volta das vistas</td><td><code>folha.py --limpar ... --papel</code></td></tr>
       <tr><td>Fundo sujo na folha</td><td>Pedaços da referência ou névoa em volta do prédio</td><td><code>folha.py --limpar ... --nevoa 6</code></td></tr>
       <tr><td>Dia e noite desalinhados</td><td>As linhas não continuam de uma faixa para a outra</td><td>Confira com <code>comparar.py</code>; se não baterem, use só o dia</td></tr>
@@ -183,11 +184,16 @@
       <tr><td><code>endireitar.py</code></td><td>Endireita uma planta em perspectiva</td></tr>
       <tr><td><code>quadricula.py</code></td><td>Tira a grade de um mapa de batalha</td></tr>
       <tr><td><code>ampliar.py</code></td><td>Aumenta o chão em volta da pintura</td></tr>
-      <tr><td><code>folha.py</code></td><td>Acha as vistas de uma folha de prédio e limpa folhas sujas ou em pergaminho</td></tr>
+      <tr><td><code>folha.py</code></td><td>Acha as vistas de uma folha de prédio, limpa folhas sujas ou em pergaminho e confere lateral espelhada (<code>--alinhar</code>)</td></tr>
       <tr><td><code>apagar.py</code></td><td>Remenda a pintura com pedaços dela mesma</td></tr>
       <tr><td><code>espalhar.py</code></td><td>Espalha árvores onde o chão é verde e postes na calçada</td></tr>
       <tr><td><code>relevo.py</code></td><td>Ergue em blocos o que tem certa cor (sebes, muretas)</td></tr>
       <tr><td><code>comparar.py</code></td><td>Confere se dia e noite têm o mesmo enquadramento</td></tr>
+      <tr><td><code>compor.py</code></td><td>Espalha as partes de uma pintura num chão grande, ligadas por trilhas</td></tr>
+      <tr><td><code>figuras.py</code></td><td>Recorta as poses de uma folha de personagem, com fundo transparente</td></tr>
+      <tr><td><code>objeto.py</code></td><td>Monta o atlas de um objeto 3D (carro, armadilha) a partir de quatro vistas</td></tr>
+      <tr><td><code>validar_campanha.py</code></td><td>Confere as criaturas e objetos da campanha (o mesmo que abrir <a href="conferir.html">conferir.html</a>)</td></tr>
+      <tr><td><code>testar.py</code></td><td>Testa as ferramentas e o programa de ponta a ponta; rode antes de publicar uma mudança</td></tr>
     </table>
   </div></section>
 

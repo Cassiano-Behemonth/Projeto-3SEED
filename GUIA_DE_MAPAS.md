@@ -22,7 +22,7 @@ Se a pessoa tem as imagens em camadas (veja o `README.md`), o mapa se monta assi
    - **Folhas que não combinam** (a lateral pede uma profundidade e o telhado outra; `folha.py` avisa): dê `profundidade` pela laje.
    - **Prédio sem laje no chão limpo:** ponha-o onde a pintura de referência mostra, com a largura da frente tirada da escala, e diga na entrega que é chute.
    - **Não fixe `altura`**: achata a arte. Se o prédio ficar alto demais, a escala está errada.
-5. **Folha modular** (capela, ruína): `folha.py --pecas --conferir /tmp/f.png`. As etiquetas de número saem sozinhas; a numeração é da ferramenta, não a pintada. Paredes com `profundidade` de 0,5 a 0,8 m em volta, torres sem profundidade, e o chão por dentro com `pisos` (as peças de lajota da folha viram `texturas`). **Não use a planta da folha como decalque**: o desenho dela fica aparecendo dentro.
+5. **Folha modular** (capela, ruína): `folha.py --pecas --conferir rascunho/f.png`. As etiquetas de número saem sozinhas; a numeração é da ferramenta, não a pintada. Paredes com `profundidade` de 0,5 a 0,8 m em volta, torres sem profundidade, e o chão por dentro com `pisos` (as peças de lajota da folha viram `texturas`). **Não use a planta da folha como decalque**: o desenho dela fica aparecendo dentro.
 6. **Chão especial** (pátio da subestação): `decalques`, e as peças 3D por cima nas posições pintadas.
 7. **Casas pequenas:** itens de `predios` com `acabamento` e `telhadoAcabamento` do atlas. Cada uma é escrita no script; não se montam sozinhas.
 8. **Mata e postes:** `python3 ferramentas/espalhar.py mapas/<id>.json arvores.json --mata --zona ...` e `--postes x y ...`. Ela evita prédios, água e a frente das câmeras.
@@ -68,6 +68,7 @@ O que não tem conserto: o que está pintado nas paredes some sob a parede 3D; m
 - Por cima dela entram **paredes, portas, móveis e luzes em 3D**, nas posições que você informar.
 - Todas as posições são em **pixels da imagem** (`x` para a direita, `y` para baixo, origem no canto superior esquerdo).
 - `escala` diz quantos **metros vale um pixel**. Tamanhos e alturas são em **metros reais**. O programa amplia os interiores na tela (hoje 2,2 vezes, para a câmera caber nos cômodos), mas isso não muda o que se escreve.
+- **Só se anda até 2 m além da borda da imagem**, e o ponto para onde a câmera olha também fica preso aí. Peças fora disso aparecem, mas ninguém chega perto delas; o validador avisa de chegada, câmera ou passagem fora dessa área. Para um lugar maior (perseguição, mata em volta, estrada que continua), aumente a imagem, não a `escala` (com a escala, tudo cresce junto): `ampliar.py` põe chão em volta da pintura, e `compor.py` espalha pedaços dela num chão grande, ligados por trilhas.
 
 ## Passo a passo
 
@@ -80,28 +81,33 @@ O que não tem conserto: o que está pintado nas paredes some sob a parede 3D; m
 
 ## Ferramentas
 
-Só precisam do Python padrão e leem apenas PNG de verdade (algumas imagens têm extensão `.png` mas são WebP ou JPEG; converta antes — no Mac, `sips -s format png entrada --out saida.png`).
+Só precisam do Python padrão (no Windows, `py` no lugar de `python3`; com numpy e Pillow instalados, ficam mais rápidas). Leem qualquer PNG, mas só PNG de verdade: algumas imagens têm extensão `.png` e são WebP ou JPEG (a ferramenta avisa); converta antes com `ffmpeg -i entrada saida.png` ou, no Mac, `sips -s format png entrada --out saida.png`. As imagens de conferência vão bem em `rascunho/`, que fica fora do git.
 
 ```
-python3 ferramentas/grade.py assets/interiores/planta.png /tmp/g.png --passo 100
-python3 ferramentas/grade.py assets/interiores/planta.png /tmp/g.png --recorte 0 0 500 400 --recorte 500 0 500 400 --zoom 2 --passo 50
+python3 ferramentas/grade.py assets/interiores/planta.png rascunho/g.png --passo 100
+python3 ferramentas/grade.py assets/interiores/planta.png rascunho/g.png --recorte 0 0 500 400 --recorte 500 0 500 400 --zoom 2 --passo 50
 python3 ferramentas/validar.py mapas/meu_mapa.json
-python3 ferramentas/previa.py mapas/meu_mapa.json /tmp/p.png --contorno --sem-rotulos
-python3 ferramentas/comparar.py planta_dia.png planta_noite.png /tmp/c.png --clarear 2.5
+python3 ferramentas/validar.py --tudo
+python3 ferramentas/previa.py mapas/meu_mapa.json rascunho/p.png --contorno --sem-rotulos
+python3 ferramentas/comparar.py planta_dia.png planta_noite.png rascunho/c.png --clarear 2.5
 python3 ferramentas/endireitar.py planta_perspectiva.png planta.png --cantos 243 160 1457 160 1530 718 150 718 --esticar 1.15
-python3 ferramentas/foto.py mapas/meu_mapa.json /tmp/f.png --camera 0 --de 700 900 --para 700 400
+python3 ferramentas/foto.py mapas/meu_mapa.json rascunho/f.png --camera 0 --de 700 900 --para 700 400
 python3 ferramentas/apagar.py planta.png planta_limpa.png --area 620 340 665 540 --de 60 0
+python3 ferramentas/folha.py assets/predios/hotel.png --alinhar rascunho/alinhar.png
+python3 ferramentas/compor.py chao_novo.png --tamanho 4000 3200 --fundo pintura.png 700 660 1000 705 --peca pintura.png 250 110 1180 670 --em 1500 1050 --k 0.8 --trilha 500 1500 900 1100 1100 1000
 ```
 
 - **`grade.py`** desenha uma grade numerada; os números são pixels da imagem original, mesmo com recorte e zoom (`--zoom` é inteiro). Aceita vários `--recorte` de uma vez (grava `g_1.png`, `g_2.png`...) e `--clarear 2.5` para plantas escuras.
-- **`validar.py`** aponta erros e avisos: campo faltando, imagens de tamanhos diferentes, paredes sobrepostas, sala oculta sem porta, porta estreita ou que não encosta em parede, móvel de tipo desconhecido, chegada dentro de sala oculta, luz dentro de parede, passagem para mapa que não existe.
+- **`validar.py`** aponta erros e avisos: campo faltando, imagens de tamanhos diferentes ou que não existem (`imagemPlanta`, textura de porta), paredes sobrepostas, sala oculta sem porta, porta estreita ou que não encosta em parede, móvel de tipo desconhecido, chegada dentro de sala oculta, luz dentro de parede, passagem para mapa que não existe, chegada, câmera ou passagem a mais de 2 m fora da imagem, valores fora do lugar (`hora`, `luar`, `lua`, `vao` de folha, `alturaFolha`), desafios sem peça ou só com peças de "antes", e nomes em `criaturas` que a campanha não tem. `--tudo` confere todos os mapas de uma vez e as próprias listas: arquivo listado que não existe, o mesmo mapa nas duas listas, dois mapas com o mesmo `id` e mapa na pasta que nenhuma lista tem (ele não aparece no programa).
 - **`comparar.py`** grava as duas imagens em faixas verticais alternadas; se as linhas das paredes quebram nas emendas, as imagens estão deslocadas.
 - **`endireitar.py`** transforma uma planta em perspectiva numa planta reta, a partir de quatro cantos do piso. Opções: `--esticar`, `--conferir`, `--recortar`, `--encaixar`.
-- **`foto.py`** tira uma foto do mapa em 3D, sem abrir janela (precisa do Google Chrome instalado). `--camera n` usa uma câmera do mapa (0 é a de planta); `--de X Y --para X Y --altura M` olha de um ponto a outro da planta; `--noite`, `--dia`, `--revelar`. Dá para pedir várias vistas numa chamada. **É a conferência que vale:** a prévia mostra se as peças estão no lugar; a foto mostra se o mapa ficou bom.
+- **`foto.py`** tira uma foto do mapa em 3D, sem abrir janela (precisa do Google Chrome instalado). `--camera n` usa uma câmera do mapa (0 é a de planta); `--de X Y --para X Y --altura M` olha de um ponto a outro da planta; `--noite`, `--dia`, `--revelar`. Dá para pedir várias vistas numa chamada. `--porta 5174` se a 5173 estiver ocupada por outro programa; `--espera 600` num mapa enorme (milhares de árvores), que sem janela passa de 3 minutos. **É a conferência que vale:** a prévia mostra se as peças estão no lugar; a foto mostra se o mapa ficou bom.
 - **`apagar.py`** corrige a pintura. Apaga o que atrapalha (a vela pintada no convés, a sombra de um mastro) copiando por cima um pedaço vizinho do piso (`--area` com `--de`), ou cobrindo com as cores da beira quando não há vizinho igual (`--preencher`). **Remendo com "print":** `--ladrilhar X0 Y0 X1 Y1 --amostra SX0 SY0 SX1 SY1` cobre uma área repetindo um pedaço limpo da própria pintura (rua, estacionamento, gramado), para continuar o piso onde ficou um buraco; `--colar SX0 SY0 SX1 SY1 --em X Y` copia um pedaço (uma casa, uma faixa de pedestre) para outro lugar.
-- **`folha.py`** lê a folha de referência de um prédio (quatro vistas sobre fundo liso) e imprime onde está cada vista, pronto para o campo `folhas`. Com `--pecas`, lista as peças soltas de uma folha modular. Folha em **pergaminho** (moldura, manchas, rótulos): `--limpar limpa.png --manter <retângulo de cada vista> --papel` tira o papel e deixa transparentes os vãos presos no desenho (entre as pernas de uma torre, sob uma mesa), que de outro jeito virariam placas opacas. `--espelhar X0 Y0 X1 Y1` desvira uma vista que veio espelhada (na lateral direita, a frente do prédio fica do lado esquerdo da vista). Se a quarta vista tem o tamanho de uma lateral, a folha trouxe as duas laterais e nenhum telhado: use só frente, lado e fundos.
-- **`quadricula.py`** tira a grade de um mapa de batalha (linhas finas, mesmo irregulares). `--marcar` mostra em rosa o que sai; `--agua` faz uma segunda passada mais fina na água, onde a grade é clara. A rosa dos ventos e a moldura não saem: `apagar.py --ladrilhar` e corte.
+- **`folha.py`** lê a folha de referência de um prédio (quatro vistas sobre fundo liso) e imprime onde está cada vista, pronto para o campo `folhas`. Com `--pecas`, lista as peças soltas de uma folha modular. Folha em **pergaminho** (moldura, manchas, rótulos): `--limpar limpa.png --manter <retângulo de cada vista> --papel` tira o papel e deixa transparentes os vãos presos no desenho (entre as pernas de uma torre, sob uma mesa), que de outro jeito virariam placas opacas. `--espelhar X0 Y0 X1 Y1` desvira uma vista que veio espelhada (na lateral direita, a frente do prédio fica do lado esquerdo da vista). Se a quarta vista tem o tamanho de uma lateral, a folha trouxe as duas laterais e nenhum telhado: use só frente, lado e fundos. **`--alinhar rascunho/a.png`** é a conferência da folha: põe o telhado girado em cima de cada vista, na mesma escala e com linhas-guia, e mostra a "volta" no prédio (frente, lateral e fundos lado a lado). Chaminés, torres e cúpulas têm que cair na mesma linha no telhado e na vista; se só caem na lateral desvirada, ela veio espelhada. Nenhuma ferramenta decide isso sozinha: olhe.
+- **`quadricula.py`** tira a grade de um mapa de batalha (linhas finas, mesmo irregulares). `--marcar` mostra em rosa o que sai; `--agua` faz uma segunda passada mais fina na água, onde a grade é clara; `--maximo 150` tira também uma grade escura, bem marcada (o padrão só tira as suaves, para não apagar traços do desenho). A rosa dos ventos e a moldura não saem: `apagar.py --ladrilhar` e corte.
 - **`ampliar.py`** põe a pintura no meio de um chão maior, coberto com um pedaço do próprio chão (`--amostra`), escurecendo para mata longe dela (`--escurecer 0.65`). Só se anda até 2 m além da borda da imagem: é assim que um mapa fica maior que a pintura sem mudar a escala.
+- **`compor.py`** espalha as partes de uma pintura num chão grande: cada `--peca` é um retângulo da pintura posto onde `--em` manda (o mesmo `--k` em todas; `--forma elipse` para lago e ilha), com a beira irregular, e cada `--trilha` é um caminho de terra em curva passando pelos pontos dados (uma trilha sem saída é só uma trilha que acaba no mato). No fim imprime, pedaço por pedaço, a conta que leva uma posição lida na pintura para o chão novo. A escala do mapa passa a ser a da pintura dividida por `--k`. As amostras de chão (`--fundo`) e de terra (`--terra`) têm de ser limpas: o que houver nelas se repete pelo chão inteiro.
+- **`figuras.py`** e **`objeto.py`** não são para mapas: recortam personagens e montam objetos 3D para a campanha (veja a seção 6 do `README.md`).
 - **`espalhar.py`** espalha mata onde o chão é verde (`--mata --zona ...`) e leva postes para a calçada mais próxima (`--postes x y ...`), sem pôr nada em prédios, água ou na frente das câmeras.
 - **`relevo.py`** ergue em blocos o que tem certa cor: as sebes de um labirinto, muretas, canteiros. Grava uma lista para juntar em `predios`; `--mascara` mostra antes o que vai subir. `--predios mapas/<id>.json` tira do chão a pintura de todos os prédios com fachada. Grave com outro nome e aponte `imagem` para o arquivo novo.
 - **`previa.py`** desenha o mapa por cima da planta (plataformas em verde-água, prédios em dourado). `--passo 50` põe por cima a mesma grade numerada do `grade.py`, para ler de quantos pixels uma peça está fora. `--contorno` mostra a área que cada parede ocupa de verdade, com a planta visível por baixo; `--sem-rotulos` tira os nomes de salas, móveis e portas; `--recorte` (vários de uma vez), `--zoom` e `--clarear` funcionam como na grade.
@@ -112,7 +118,7 @@ python3 ferramentas/apagar.py planta.png planta_limpa.png --area 620 340 665 540
 {
   "id": "meu_mapa",
   "nome": "Nome que aparece na tela",
-  "local": "mansao",
+  "local": "taverna",
   "imagem": "assets/interiores/meu_mapa_dia.png",
   "imagemNoite": "assets/interiores/meu_mapa_noite.png",
   "larguraPx": 1672,
@@ -123,7 +129,7 @@ python3 ferramentas/apagar.py planta.png planta_limpa.png --area 620 340 665 540
   "hora": "dia",
   "corEntorno": "#0d4a86",
 
-  "acabamento": "mansao",
+  "acabamento": "papelDeParede",
   "corParede": "#ffffff",
   "espParede": 0.22,
   "alturaParede": 2.5,
@@ -144,7 +150,7 @@ python3 ferramentas/apagar.py planta.png planta_limpa.png --area 620 340 665 540
 
   "cameras": [{ "nome": "Cozinha", "de": [440, 722], "para": [250, 590], "altura": 1.9 }],
   "chegada": { "de": [835, 850], "para": [820, 400] },
-  "passagens": [{ "x": 835, "y": 880, "altura": 1.3, "nome": "Porta da frente", "anim": "porta", "destino": { "local": "mansao", "camera": 1 } }]
+  "passagens": [{ "x": 835, "y": 880, "altura": 1.3, "nome": "Porta da frente", "anim": "porta", "destino": { "local": "taverna", "camera": 1 } }]
 }
 ```
 
@@ -168,7 +174,7 @@ Obrigatórios: `id`, `imagem`, `larguraPx`, `alturaPx`, `escala`. O resto é opc
 | `imagemPredios` | A planta original, quando `imagem` é a versão com os prédios apagados do chão. Mesmo tamanho de `imagem`. |
 | `brilho` | Clareia a pintura quando ela é escura demais para o 3D (1 = como está; 2 = o dobro). Vale para o piso, os telhados e as fachadas. |
 | `corEntorno` | Cor do chão em volta da imagem, para o mapa não acabar no vazio (azul do mar, branco da neve, verde do mato). |
-| `acabamento` | Parede: `mansao` (papel de parede e lambri), `tabuas`, `madeira`, `concreto`, `pedra`, `ruina` (pedra velha com musgo, escorridos e rachaduras), `tijolo`, `metal` (chapas rebitadas), `reboco` (branco com esteios de madeira), `gelo`; e as **texturas fotográficas dos pacotes**: `pedraMuro`, `arenito`, `paralelepipedo`, `pisoPraca`, `calcada`, `asfalto`, `grama`, `telhaBarro`, `ardosiaFoto`, `rebocoBranco`, `concretoParede`. Um nome de `texturas` do mapa também vale. Sem ele, parede lisa na cor `corParede`. Com ele, `corParede` tinge a textura. |
+| `acabamento` | Parede: `papelDeParede` (papel de parede e lambri), `tabuas`, `madeira`, `concreto`, `pedra`, `ruina` (pedra velha com musgo, escorridos e rachaduras), `tijolo`, `metal` (chapas rebitadas), `reboco` (branco com esteios de madeira), `gelo`; e as **texturas fotográficas dos pacotes**: `pedraMuro`, `arenito`, `paralelepipedo`, `pisoPraca`, `calcada`, `asfalto`, `grama`, `telhaBarro`, `ardosiaFoto`, `rebocoBranco`, `concretoParede`. Um nome de `texturas` do mapa também vale. Sem ele, parede lisa na cor `corParede`. Com ele, `corParede` tinge a textura. |
 | `alturaParede` | Altura das paredes em metros, quando forem mais baixas que o pé-direito. O pé-direito padrão é 4,1 m, alto de propósito para a câmera caber nos cômodos; muros de quintal: 2,5. Cada parede pode ter a sua com `altura`. |
 | `teto` | Aparece só com a câmera abaixo dele. `vigas` põe vigas de madeira. `area` é o retângulo `[x0, y0, x1, y1]` que ele cobre (o prédio); sem `area`, cobre a planta inteira. Lugar a céu aberto: não use. |
 | `moldura` | Retângulo `[x0, y0, x1, y1]` em volta do prédio; pinta de preto o que fica fora. Não use se a área de fora (rua, calçada) deve aparecer. |
@@ -177,11 +183,14 @@ Obrigatórios: `id`, `imagem`, `larguraPx`, `alturaPx`, `escala`. O resto é opc
 | `grades` | Barras de ferro de um ponto a outro; dá para ver através, mas não passar nem abrir. |
 | `barreiras` | Colisão invisível (parapeitos, bordas, topo de escada que não leva a lugar nenhum). |
 | `salas` | Cômodos que começam ocultos: nome → lista de retângulos `[x0, y0, x1, y1]` que os cobrem, até a linha do meio das paredes (com parede grossa o retângulo entra na faixa, e está certo). |
-| `portas` | `p` são as duas pontas do vão; a dobradiça fica na primeira. `revela` lista as salas que aparecem ao abrir. `sentido`: andando do primeiro ponto para o segundo, `1` abre para a esquerda e `-1` para a direita; a porta `[100, 200, 150, 200]` com `sentido: 1` abre para cima na imagem (y menor). `fixa: true` faz uma porta que não abre. |
+| `portas` | `p` são as duas pontas do vão; a dobradiça fica na primeira. `revela` lista as salas que aparecem ao abrir. `sentido`: andando do primeiro ponto para o segundo, `1` abre para a esquerda e `-1` para a direita; a porta `[100, 200, 150, 200]` com `sentido: 1` abre para cima na imagem (y menor). `fixa: true` faz uma porta que não abre. `textura` troca a folha lisa por um painel com arte: `{ "imagem": "assets/predios/portao.png", "rect": [x0, y0, x1, y1], "espelhar": true }`, o retângulo da arte dentro da imagem (a parte transparente fica vazada, como num portão de ferro); `alturaFolha` é a altura desse painel em metros. Para um portão de duas folhas, duas portas, cada uma com a dobradiça na ponta de fora e `espelhar` numa delas. |
 | `moveis` | Peças do kit. `giro` em graus: 0 = frente para baixo na planta, 90 = para a direita, 180 = para cima, -90 = para a esquerda; qualquer ângulo vale. |
 | `luzes` | Pontos de luz. `forca` típica de 0,1 a 0,2; `raio` é o tamanho da mancha no chão; `altura` em metros. `luzPadrao` dá os valores comuns. |
 | `cameras` | Câmeras de cena: de onde (`de`) e para onde (`para`) olham; `altura` em metros (padrão 1,9); `alturaAlvo` é a altura do ponto olhado (padrão 1,2; aumente para enquadrar um prédio alto de perto). A vista "Planta" é criada sozinha. |
 | `chegada` | Onde a câmera aparece, a pé, ao entrar: posição `de`, olhando para `para`. |
+| `criaturas` | Quais personagens e criaturas da campanha aparecem no painel enquanto este mapa está aberto: `["explorador", "lobo"]` (os `id` deles). Sem o campo, aparecem todos. |
+| `imagemPlanta` | Um mapa desenhado para os jogadores (sem segredos, com cara de mapa de papel), mostrado no lugar da cena quando o mestre escolhe o ângulo "Planta" deste mapa, também na segunda tela: `"assets/interiores/<id>_mapa_jogadores.png"`. Qualquer tamanho; aparece inteiro e centralizado. |
+| `desafios` | A ordem e o verbo dos desafios do mapa (o que os jogadores montam ou acendem): `[{ "nome": "Cabana 1" }, { "nome": "Fogueira", "acao": "acender" }]`. `acao` padrão: `montar`. Veja "Desafios: antes e depois". |
 | `passagens` | Pontos clicáveis que levam a outro lugar. `altura` é a do marcador. `anim`: `porta` (porta de metal), `porta-dupla`, `porta-madeira` (porta de tábuas de cabana ou chalé), `som` ou `corte`; as três primeiras tocam a animação de abrir a porta no escuro. `destino`: `{ "mapa": "<id>" }` leva a outro mapa e chega na `chegada` dele; com `"camera": n` chega na câmera `n` daquele mapa (0 = planta, 1 = a primeira de `cameras`, e assim por diante). `{ "local": "<local>", "camera": n }` leva à cidade, na câmera `n` daquele local (0 = vista aérea, 1 = vista da entrada). |
 
 ## Paredes
@@ -331,7 +340,8 @@ Uma pintura só, inclinada, com chão, prédios e rótulos misturados, dá um ma
 - `x`, `y`: o centro do prédio na planta; `giro` como nos móveis (0 = frente para baixo).
 - `largura`: a da frente, em metros. A altura sai da proporção da vista de frente; `profundidade` sai da vista lateral, ou é dada para o prédio caber no terreno.
 - O fundo liso da folha some sozinho, e **o volume é esculpido pelas silhuetas**: o prédio é cortado em fatias e, em cada altura, só existe onde a frente e a lateral têm desenho. Torres, empenas e recuos ficam com volume de verdade, cada face com a arte da sua vista e os topos com a vista do telhado. `fatias` (padrão 72) é em quantas camadas ele é cortado. Limite conhecido: telhados inclinados saem em degraus, e o topo de prédios com muitas torres fica confuso visto de cima.
-- `sobre` ergue a peça (uma agulha em cima de uma torre); `colide: false` deixa passar.
+- `sobre` ergue a peça (uma agulha em cima de uma torre); `colide: false` deixa passar, e a câmera também deixa de tratar a folha como chão (para uma copa, um arco, um toldo).
+- `vao`: `{ "de": 0.72, "ate": 0.95, "margem": 0.3 }` esvazia o miolo de um trecho maciço, entre as alturas `de` e `ate` (0 no pé da vista, 1 no topo): fica só a casca, com parede de `margem` metros, piso e borda. É a cabine aberta de uma torre de vigia, o alto de um coreto. Postes e peças estreitas no trecho ficam como estão.
 - **Tamanho pelo chão:** se o chão limpo traz a laje de cada prédio, dê `x`, `y`, `largura` e `profundidade` pela laje (largura da laje em pixels vezes a escala), para o prédio pisar exatamente nela. Se com isso ele ficar alto demais, `altura` fixa a altura em metros (a arte achata um pouco na vertical).
 - `telhadoFrente`: de que lado da vista do telhado fica a frente do prédio: `baixo` (padrão), `direita`, `esquerda` ou `cima`. Serve quando o telhado vem deitado na folha (`folha.py` avisa).
 - `escadas`: a escada ou o alpendre que a vista lateral mostra no pé do prédio fica pintado na fachada (padrão). `"volume"` faz a escada avançar, mas costuma deixar a entrada quadrada.
@@ -342,7 +352,7 @@ Uma pintura só, inclinada, com chão, prédios e rótulos misturados, dá um ma
 - **Chaminé, torre ou anexo ao lado do prédio:** faça duas peças. O prédio usa os retângulos sem a chaminé; a chaminé é outro item de `folhas`, só com `frente`, no lugar que a vista do telhado mostra. Tire a chaminé da vista lateral acima dos telhados (não a inclua no `--manter`), senão ela vira um bloco fantasma em cima do prédio.
 - **Alturas das vistas:** se a frente é mais alta que a lateral ou os fundos na folha (chaminés, um frontão), dê às três o mesmo `y0` e `y1` da frente, para a altura bater. Se as vistas não combinam em largura (a IA de imagem erra nisso), dê a `profundidade` à mão.
 
-**Folha modular** (paredes, torres, portas e pilares soltos, mais a planta do lugar). `python3 ferramentas/folha.py folha.png --pecas --conferir /tmp/f.png` lista o retângulo de cada peça. Cada uma vira um item de `folhas` só com `frente`:
+**Folha modular** (paredes, torres, portas e pilares soltos, mais a planta do lugar). `python3 ferramentas/folha.py folha.png --pecas --conferir rascunho/f.png` lista o retângulo de cada peça. Cada uma vira um item de `folhas` só com `frente`:
 
 - **parede:** `profundidade` de 0,5 a 0,8 m; o centro em `x`, `y` e o `giro` apontando para fora do prédio;
 - **torre, agulha, pilar:** sem `profundidade` (a peça fica simétrica, com a mesma arte dos quatro lados);
@@ -428,7 +438,8 @@ Tamanhos em metros; `cor` em hexadecimal. Todos aceitam `x`, `y` (posição na p
 | `poste` | `h` (rua: 3; lampião de navio: 1,4), `cor`, `luz` (cor da lanterna) |
 | `tenda` | `w`, `d`, `h`, `cor` (lona) |
 | `cerca` | `w` (comprimento; com giro 0 corre na horizontal da imagem), `h` (1,25), `cor`, `vao` (distância entre moirões, 2,4): cerca de madeira com moirões e duas travessas. Colide em toda a extensão (criaturas e câmera não passam) e não conta como chão. Para cercar um lugar, junte trechos de 5 a 8 m; numa encosta, trechos de 2 m com `sobre` na altura do chão. |
-| `fogueira` | `r` (raio, 0,9), `h` (altura das toras, 1,7), `cor` (toras): anel de pedras, toras em pirâmide e chama que tremula, acesa de dia e de noite. Ponha uma luz quente no mesmo ponto (`forca` 0,4, `raio` 16). |
+| `fogueira` | `r` (raio, 0,9), `h` (altura das toras, 1,7), `cor` (toras): anel de pedras, toras em pirâmide e chama que tremula, acesa de dia e de noite. Ponha uma luz quente no mesmo ponto (`forca` 0,4, `raio` 16). `acesa: false`: só pedras e lenha, sem chama (o "antes" de um desafio). |
+| `barracaDesmontada` | `w` (comprimento do feixe, 1,8), `cor` (da lona): a lona enrolada e amarrada, o feixe de varas, uma lona dobrada e as estacas, no chão. É o "antes" de uma barraca num desafio. |
 | `container` | `w` (comprimento), `h`, `d`, `cor` |
 | `domo` | `r` (raio da redoma), `base` (altura do pedestal em que ela se apoia), `cor` |
 | `parabolica` | `r` (raio do prato), `h` (altura do pedestal), `cor`; a frente é para onde aponta |
@@ -455,6 +466,23 @@ Todas as peças, de céu aberto ou não, aceitam `"sobre": <metros>` para ficar 
 
 **O que fica em 3D:** o piso já mostra os móveis pintados. Cubra o que tem mais de uns 0,6 m ou se repete muito (mesas, camas, sofás, balcões, estantes, carteiras) e deixe cadeiras e objetos pequenos como pintura. Móveis altos barram as criaturas, mas a câmera passa por cima.
 
+## Desafios: antes e depois
+
+Para o que os jogadores constroem durante a sessão (montar as barracas, acender a fogueira, consertar a ponte): cada peça ganha `"desafio": "<nome>"`. Sem mais nada, ela é o **depois** (a barraca montada) e só aparece quando o mestre marca o desafio como feito. Com `"fase": "antes"`, ela é o **antes** (o material no chão, a lenha apagada) e some nessa hora. Vale para `folhas`, `moveis` e `luzes`; várias peças podem ter o mesmo desafio.
+
+```json
+"folhas": [{ "imagem": "assets/predios/barraca.png", "frente": [...], "x": 3270, "y": 568, "giro": 51, "largura": 3.4, "desafio": "Cabana 1" }],
+"moveis": [
+  { "tipo": "barracaDesmontada", "x": 3270, "y": 568, "giro": 51, "w": 1.9, "desafio": "Cabana 1", "fase": "antes" },
+  { "tipo": "fogueira", "x": 3315, "y": 604, "acesa": false, "desafio": "Fogueira", "fase": "antes" },
+  { "tipo": "fogueira", "x": 3315, "y": 604, "desafio": "Fogueira" }
+],
+"luzes": [{ "x": 3315, "y": 604, "altura": 1.2, "cor": "#ff8a3a", "forca": 0.45, "raio": 16, "desafio": "Fogueira" }],
+"desafios": [{ "nome": "Cabana 1" }, { "nome": "Fogueira", "acao": "acender" }]
+```
+
+Na tela do mestre aparece o botão **Desafios** entre as câmeras. O painel lista cada desafio com o botão de fazer e de desfazer (montar/desmontar, acender/apagar) e tem "Fazer tudo" e "Recomeçar". Com ele aberto, o nome de cada desafio aparece em cima do lugar, só na tela do mestre. Tudo começa por fazer. As peças em folha sobem do chão em uns 2 segundos, as luzes acendem aos poucos e a segunda tela acompanha. Peça escondida não barra quem anda nem conta como chão.
+
 ## O que o formato ainda não faz
 
 - Teto que não seja um retângulo só.
@@ -463,7 +491,6 @@ Todas as peças, de céu aberto ou não, aceitam `"sobre": <metros>` para ficar 
 - Telhado sobre cômodos em que se entra (o telhado existe só na peça `casa`, que é fechada).
 - Entrar nos prédios de um mapa de cidade (cada interior é outro mapa).
 - Peças que ainda não existem: aeronave, empilhadeira, roda d'água, enxárcias, navio grande pronto (faz-se com plataformas).
-- Portão de grade que abre (grade é fixa; porta é folha de madeira).
 - Janelas.
 - Peças arredondadas além de cilindros (um balcão em U vira três balcões retos).
 - Sala oculta que não seja formada por retângulos retos.

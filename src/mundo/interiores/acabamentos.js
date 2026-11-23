@@ -1,5 +1,5 @@
-// Acabamentos de parede dos interiores: papel de parede com lambri (mansão), tábuas (bar),
-// concreto (base) e pedra (subsolo). Cada material traz o tamanho do ladrilho:
+// Acabamentos de parede dos interiores: papel de parede com lambri, tábuas,
+// concreto e pedra. Cada material traz o tamanho do ladrilho:
 // tile[0] = metros por repetição ao longo da parede; tile[1] = fração da altura por repetição.
 import * as THREE from 'three';
 import { ALTURA_PAREDE } from './medidas.js';
@@ -150,7 +150,7 @@ export function acabamentoQuadrado(M, nome, duplo = false) {
 export function acabamento(M, nome) {
   if (cache.has(nome)) return cache.get(nome);
   let mat;
-  if (nome === 'mansao') {
+  if (nome === 'papelDeParede' || nome === 'mansao') { // 'mansao' é o nome antigo; continua valendo
     mat = new THREE.MeshStandardMaterial({ map: textura(papelDeParede, 512, Math.round((512 * ALTURA_PAREDE) / 1.7)), roughness: 0.92, vertexColors: true });
     mat.userData.tile = [1.7, 1];
   } else if (nome === 'tabuas') {

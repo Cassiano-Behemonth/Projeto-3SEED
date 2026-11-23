@@ -214,7 +214,7 @@ export function telao() {
   return { map: t, emissiveMap: t };
 }
 
-// Mostrador de relógio (manicômio).
+// Mostrador de relógio de parede.
 export function relogio() {
   const S = 128;
   const [c, g] = tela(S, S);

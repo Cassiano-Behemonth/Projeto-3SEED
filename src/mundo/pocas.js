@@ -12,8 +12,15 @@ export function criarPocasDeLuz(mundo) {
   mundo.luzes.forEach((l, i) => {
     o.position.set(l.x, l.chao ?? ALT_PADRAO, l.z); o.scale.set(l.raio * 1.5, 1, l.raio * 1.5); o.updateMatrix();
     im.setMatrixAt(i, o.matrix);
-    im.setColorAt(i, c.set(l.cor).multiplyScalar(0.3 * (l.poca ?? l.forca)));
+    im.setColorAt(i, c.set(l.cor).multiplyScalar(0.3 * (l.poca ?? l.forca) * (l.k ?? 1)));
+    l._poca = i;
   });
+  // Refaz a poça de uma luz cujo fator "k" (0 apagada, 1 acesa) mudou: a fogueira de um desafio que acende.
+  mundo.pocaDe = (l) => {
+    if (l._poca == null) return;
+    im.setColorAt(l._poca, c.set(l.cor).multiplyScalar(0.3 * (l.poca ?? l.forca) * (l.k ?? 1)));
+    im.instanceColor.needsUpdate = true;
+  };
   im.renderOrder = 2;
   im.frustumCulled = false;
   mundo.opacidadesNoturnas.push({ mat, max: 1, obj: im });

@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Testes no navegador</title>
+  <style>body { font: 13px system-ui, sans-serif; margin: 16px; } pre { white-space: pre-wrap; } iframe { width: 960px; height: 540px; border: 1px solid #888; }</style>
+</head>
+<body>
+<!-- Testes do programa no navegador. ferramentas/testar.py abre esta página sem janela e lê o resultado; também dá para
+     abrir à mão: http://127.0.0.1:5173/ferramentas/teste_navegador.html (com ?todos=1, testa também os seus mapas). -->
+<h1>Testes no navegador</h1>
+<pre id="resultado">rodando...</pre>
+<iframe id="quadro"></iframe>
+<script type="module">
+const saida = []; const pre = document.getElementById('resultado');
+const linha = (ok, nome, detalhe = '') => { saida.push(`${ok ? 'OK  ' : 'FALHA'} ${nome}${detalhe ? ' — ' + detalhe : ''}`); pre.textContent = saida.join('\n'); };
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+const quadro = document.getElementById('quadro');
+const params = new URLSearchParams(location.search);
+
+// Abre uma página no quadro e espera "pronto(janela)" ficar verdadeiro (ou o tempo acabar).
+async function abrir(url, pronto, limite = 30000) {
+  quadro.src = 'about:blank'; await espera(50);
+  quadro.src = url;
+  const t0 = performance.now();
+  while (performance.now() - t0 < limite) {
+    await espera(200);
+    const w = quadro.contentWindow;
+    try { if (w && w.document.readyState !== 'loading' && pronto(w)) return { w, ms: Math.round(performance.now() - t0) }; } catch { /* ainda carregando */ }
+  }
+  return { w: quadro.contentWindow, ms: null };
+}
+const erros = (w) => (w && w.__erros) ? w.__erros : [];
+const lerJson = async (u) => (await fetch(u, { cache: 'no-store' })).json();
+
+// Quais mapas testar: os exemplos; com ?todos=1, também os da lista local.
+async function mapas() {
+  const nomes = (await lerJson('../mapas/indice.json')).mapas ?? [];
+  if (params.get('todos')) try { nomes.push(...((await lerJson('../mapas/indice_local.json')).mapas ?? [])); } catch { /* sem lista local */ }
+  const lista = [];
+  for (const n of nomes) try { lista.push(await lerJson('../mapas/' + n)); } catch { linha(false, `mapa ${n}`, 'não consegui ler o arquivo'); }
+  return lista;
+}
+
+// Compara o mapa salvo pelo editor com o original e diz o que se perdeu. Tolera o que o editor faz de propósito:
+// arredondar posições a 0,1 px, gravar paredes por faixa ou por pontos como linha com espessura, omitir valores padrão.
+function perdas(orig, novo, caminho = '', out = []) {
+  if (orig === null || orig === undefined) return out;
+  if (typeof orig === 'number') { if (typeof novo !== 'number' || Math.abs(orig - novo) > 0.06) out.push(`${caminho}: ${orig} virou ${JSON.stringify(novo)}`); return out; }
+  if (typeof orig !== 'object') { if (String(orig) !== String(novo)) out.push(`${caminho}: ${JSON.stringify(orig)} virou ${JSON.stringify(novo)}`); return out; }
+  if (Array.isArray(orig)) {
+    if (!Array.isArray(novo)) { out.push(`${caminho}: a lista sumiu`); return out; }
+    if (orig.length !== novo.length) { out.push(`${caminho}: ${orig.length} itens viraram ${novo.length}`); return out; }
+    orig.forEach((v, i) => perdas(v, novo[i], `${caminho}[${i}]`, out)); return out;
+  }
+  if (novo === undefined || novo === null || typeof novo !== 'object') { out.push(`${caminho}: sumiu`); return out; }
+  for (const [k, v] of Object.entries(orig)) {
+    const padrao = { sentido: 1, fixa: false, revela: [] };
+    if (!(k in novo)) { if (k in padrao && JSON.stringify(padrao[k]) === JSON.stringify(v)) continue; if (k === 'espParede' && v === 0.22) continue; out.push(`${caminho}.${k}: sumiu`); continue; }
+    perdas(v, novo[k], `${caminho}.${k}`, out);
+  }
+  return out;
+}
+// As paredes mudam de forma no editor (faixa e pontos viram linhas); confere só que nenhuma propriedade delas some.
+function propsParedes(d) {
+  const s = new Set();
+  for (const p of d.paredes ?? []) if (p && !Array.isArray(p)) for (const [k, v] of Object.entries(p)) if (!['p', 'faixa', 'pontos', 'esp', 'fechada'].includes(k)) s.add(`${k}=${JSON.stringify(v)}`);
+  return s;
+}
+
+const testes = [];
+const lista = await mapas();
+linha(lista.length > 0, 'listas de mapas', `${lista.length} mapas`);
+
+// 1. Programa: cada mapa abre, sem erro.
+for (const d of lista) {
+  const { w, ms } = await abrir(`../index.html?mapa=${encodeURIComponent(d.id)}&so=1&limpo=1`, (w) => w.mapa && w.mapa.mundo && w.mapa.mundo.mapaAtual === d.id, 60000);
+  if (ms !== null) await espera(1500);   // erros que aparecem logo depois de montar o mapa
+  const e = erros(w);
+  linha(ms !== null && !e.length, `programa abre "${d.id}"`, ms === null ? 'não carregou em 60 s' + (e.length ? '; erros: ' + e.join(' | ') : '') : `${ms} ms` + (e.length ? '; erros: ' + e.join(' | ') : ''));
+}
+
+// 2. Editor: abrir e salvar cada mapa não perde nada.
+{
+  const { w, ms } = await abrir('../editor.html', (w) => w.editorTeste);
+  if (ms === null) linha(false, 'editor abre', 'não carregou' + (erros(w).length ? '; erros: ' + erros(w).join(' | ') : ''));
+  else {
+    linha(!erros(w).length, 'editor abre', `${ms} ms` + (erros(w).length ? '; erros: ' + erros(w).join(' | ') : ''));
+    for (const d of lista) {
+      const copia = JSON.parse(JSON.stringify(d));
+      let novo;
+      try { w.editorTeste.carregar(JSON.parse(JSON.stringify(d))); novo = JSON.parse(JSON.stringify(w.editorTeste.comoSalvar())); }
+      catch (e) { linha(false, `editor guarda "${d.id}"`, 'erro: ' + e.message); continue; }
+      const { paredes: pa, ...resto } = copia; const { paredes: pb, ...restoNovo } = novo;
+      const p = perdas(resto, restoNovo);
+      const faltam = [...propsParedes(copia)].filter((x) => !propsParedes(novo).has(x));
+      if (faltam.length) p.push('paredes: perderam ' + faltam.slice(0, 5).join(', '));
+      linha(!p.length, `editor guarda "${d.id}"`, p.length ? p.slice(0, 6).join('; ') + (p.length > 6 ? ` (e mais ${p.length - 6})` : '') : '');
+    }
+  }
+}
+
+// 3. Outras páginas abrem sem erro.
+for (const [nome, url, pronto] of [['página inicial', '../inicio.html', (w) => w.document.querySelector('h1')], ['projetor', '../projetor.html', (w) => w.document.readyState === 'complete']]) {
+  const { w, ms } = await abrir(url, pronto, 15000); await espera(500);
+  linha(ms !== null && !erros(w).length, `${nome} abre`, ms === null ? 'não carregou' : erros(w).join(' | '));
+}
+
+// 4. Campanha (só se houver src/campanha.js): a conferência da página conferir.html.
+if (await fetch('../src/campanha.js', { method: 'HEAD' }).then((r) => r.ok).catch(() => false)) {
+  const { w, ms } = await abrir('../conferir.html', (w) => w.resultadoConferencia, 60000);
+  const r = w && w.resultadoConferencia;
+  if (!r) linha(false, 'campanha', 'conferir.html não terminou');
+  else linha(!r.erros.length, 'campanha', `${r.erros.length} erros, ${r.avisos.length} avisos` + (r.erros.length ? ': ' + r.erros.slice(0, 4).join('; ') : ''));
+}
+
+// 5. O conferidor da campanha pega os enganos (campanha falsa, feita de propósito com erros).
+{
+  const { conferirCampanha } = await import('../src/util/conferir_campanha.js');
+  const img = 'docs/imagens/editor.jpg';   // imagem que vem com o projeto (medidas de verdade diferentes das escritas)
+  const falsa = {
+    PERSONAGENS: [{ id: 'heroi', nome: 'Herói', real: 1.8, vistas: { frente: { arquivo: img, w: 10, h: 10, alt: 1 } } }],
+    MONSTROS: [
+      { id: 'heroi', nome: 'Repetido', arquivo: 'nao_existe.webm' },
+      { id: 'sem_tipo', nome: 'Nada' },
+      { id: 'lobo', nome: 'Lobo', fixo: true, real: -2, quadros: { parado: { arquivo: 'nao.png', w: 5, h: 5 } }, poses: [['correndo', 'Correndo']], poseAndar: { frente: 'andando', diagonais: true }, cor: 'azul' },
+      { id: 'carro', nome: 'Carro', leva: ['heroi', 'fantasma'], volume: { comp: 4, larg: 0, alt: 1.4, atlas: img, F: [0, 0, 10, 10], S: [0, 0, 99999, 10], B: [0, 0, 10], T: [0, 0, 50, 10] } },
+      { id: 'barco', nome: 'Barco', leva: 'Marujos', arquivo: 'barco.mp4' },
+    ],
+  };
+  const r = await conferirCampanha(falsa, { base: '../', mapas: [{ id: 'teste', criaturas: ['lobo', 'dragao'] }] });
+  const tudo = [...r.erros, ...r.avisos].join('\n');
+  const esperados = ['duas criaturas com esse id', 'vídeo assets/monstros/nao_existe.webm não existe', '"sem_tipo": falta o que mostrar', 'precisa das vistas', 'sai esticada',
+    '"real" deve ser um número', 'falta "alt"', 'imagem nao.png não existe', 'pose "correndo" está em "poses"', '"poseAndar.frente" é "andando"', 'diagonais" pede os quadros',
+    'campo desconhecido "cor"', '"volume.larg" deve ser', '"volume.B" deve ser', 'sai do atlas', 'vista de cima (T)', '"leva" cita "fantasma"', 'nenhuma criatura tem esse "grupo"',
+    'não é WebM', '"criaturas" cita "dragao"'];
+  const faltam = esperados.filter((e) => !tudo.includes(e));
+  linha(!faltam.length, 'o conferidor da campanha pega os enganos', faltam.length ? 'não pegou: ' + faltam.join(' | ') : `${r.erros.length} erros e ${r.avisos.length} avisos na campanha falsa`);
+}
+
+saida.push('FIM'); pre.textContent = saida.join('\n'); document.title = 'pronto';
+</script>
+</body>
+</html>

@@ -9,14 +9,14 @@ const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) 
 // forma: 'seg' (dois pontos), 'ret' (retângulo) ou 'pto' (um ponto). props: [chave, rótulo, tipo de campo, opções].
 const TIPOS = {
   sel: { nome: 'Selecionar', cor: '#cfcfcf', tecla: 'v' },
-  parede: { forma: 'seg', nome: 'Parede', cor: '#efe8d8', tecla: 'w', props: [['esp', 'Espessura (m)', 'num'], ['altura', 'Altura (m); vazio = até o teto', 'num'], ['cor', 'Cor', 'cor'], ['acabamento', 'Acabamento', 'sel', ['', 'mansao', 'tabuas', 'concreto', 'pedra', 'tijolo', 'ruina', 'madeira', 'metal', 'reboco', 'gelo']]] },
+  parede: { forma: 'seg', nome: 'Parede', cor: '#efe8d8', tecla: 'w', props: [['esp', 'Espessura (m)', 'num'], ['altura', 'Altura (m); vazio = até o teto', 'num'], ['cor', 'Cor', 'cor'], ['acabamento', 'Acabamento', 'sel', ['', 'papelDeParede', 'tabuas', 'concreto', 'pedra', 'tijolo', 'ruina', 'madeira', 'metal', 'reboco', 'gelo']]] },
   porta: { forma: 'seg', nome: 'Porta', cor: '#ff9a3d', tecla: 'd', props: [['revela', 'Salas que revela (separe por vírgula)', 'txt'], ['sentido', 'Lado para onde abre', 'sel', ['1', '-1']], ['fixa', 'Só enfeite (não abre)', 'bool']] },
   sala: { forma: 'ret', nome: 'Sala oculta', cor: '#5b8cff', tecla: 'r', props: [['nome', 'Nome da sala', 'txt']] },
   movel: { forma: 'pto', nome: 'Móvel', cor: '#7fd0ff', tecla: 'm' },
   luz: { forma: 'pto', nome: 'Luz', cor: '#ffd84a', tecla: 'l', props: [['cor', 'Cor', 'cor'], ['forca', 'Força (0,1 a 0,2)', 'num'], ['raio', 'Raio da mancha (m)', 'num'], ['altura', 'Altura (m)', 'num']] },
   camera: { forma: 'seg', nome: 'Câmera', cor: '#ff6ad5', tecla: 'c', props: [['nome', 'Nome', 'txt'], ['altura', 'Altura (m)', 'num']] },
   chegada: { forma: 'seg', nome: 'Chegada', cor: '#6aff8a', tecla: 'h' },
-  passagem: { forma: 'pto', nome: 'Passagem', cor: '#ffcf8a', tecla: 'p', props: [['nome', 'Nome', 'txt'], ['anim', 'Animação', 'sel', ['corte', 'porta', 'porta-dupla', 'som']], ['destinoTipo', 'Leva para', 'sel', ['mapa', 'local']], ['destinoId', 'Id do mapa ou do local', 'txt', 'listaMapas'], ['altura', 'Altura do marcador (m)', 'num']] },
+  passagem: { forma: 'pto', nome: 'Passagem', cor: '#ffcf8a', tecla: 'p', props: [['nome', 'Nome', 'txt'], ['anim', 'Animação', 'sel', ['corte', 'porta', 'porta-dupla', 'porta-madeira', 'som']], ['destinoTipo', 'Leva para', 'sel', ['mapa', 'local']], ['destinoId', 'Id do mapa ou do local', 'txt', 'listaMapas'], ['altura', 'Altura do marcador (m)', 'num']] },
   grade: { forma: 'seg', nome: 'Grade', cor: '#9aa0a8', tecla: 'g' },
   barreira: { forma: 'seg', nome: 'Barreira', cor: '#4fd6ff', tecla: 'b' },
   moldura: { forma: 'ret', nome: 'Moldura', cor: '#ffffff', tecla: 'o' },
@@ -55,20 +55,23 @@ const estado = (txt, tipo = '') => { const e = $('#estado'); e.textContent = txt
 // ───── Conversão arquivo ↔ itens ─────
 function carregar(d) {
   E.d = d; E.itens = []; E.sel = null; E.hist = [];
+  if (d.acabamento === 'mansao') d.acabamento = 'papelDeParede';   // nome antigo do mesmo acabamento
   const seg = (k, [x1, y1, x2, y2], o = {}) => E.itens.push({ k, a: [x1, y1], b: [x2, y2], o });
-  for (const o of paredesDe(d)) { const { p, ...resto } = o; seg('parede', p, resto); } // paredes por faixa viram linha + espessura
-  for (const p of d.portas ?? []) seg('porta', p.p, { revela: (p.revela ?? []).join(', '), sentido: String(p.sentido ?? 1), fixa: !!p.fixa });
+  for (const o of paredesDe(d)) { const { p, ...resto } = o; if (resto.acabamento === 'mansao') resto.acabamento = 'papelDeParede'; seg('parede', p, resto); } // paredes por faixa viram linha + espessura
+  // O que o editor não edita (textura, alturaFolha, altura) vai guardado em _extra e volta inteiro ao salvar.
+  for (const p of d.portas ?? []) { const { p: _p, revela, sentido, fixa, ...extra } = p; seg('porta', p.p, { revela: (revela ?? []).join(', '), sentido: String(sentido ?? 1), fixa: !!fixa, _extra: extra }); }
   for (const s of d.grades ?? []) seg('grade', s);
   for (const s of d.barreiras ?? []) seg('barreira', s);
   for (const [nome, rets] of Object.entries(d.salas ?? {})) for (const r of rets) seg('sala', r, { nome });
   if (d.moldura) seg('moldura', d.moldura);
   for (const m of d.moveis ?? []) { const { x, y, ...o } = m; E.itens.push({ k: 'movel', p: [x, y], o }); }
   for (const l of d.luzes ?? []) { const { x, y, ...o } = l; E.itens.push({ k: 'luz', p: [x, y], o }); }
-  for (const c of d.cameras ?? []) E.itens.push({ k: 'camera', a: [...c.de], b: [...c.para], o: { nome: c.nome ?? 'Câmera', ...(c.altura != null ? { altura: c.altura } : {}) } });
-  if (d.chegada) E.itens.push({ k: 'chegada', a: [...d.chegada.de], b: [...d.chegada.para], o: {} });
+  for (const c of d.cameras ?? []) { const { de, para, nome, altura, ...extra } = c; E.itens.push({ k: 'camera', a: [...de], b: [...para], o: { nome: nome ?? 'Câmera', ...(altura != null ? { altura } : {}), _extra: extra } }); }
+  if (d.chegada) { const { de, para, ...extra } = d.chegada; E.itens.push({ k: 'chegada', a: [...de], b: [...para], o: { _extra: extra } }); }
   for (const p of d.passagens ?? []) {
     const dst = p.destino ?? {};
-    E.itens.push({ k: 'passagem', p: [p.x, p.y], o: { nome: p.nome ?? 'Passagem', anim: p.anim ?? 'corte', destinoTipo: dst.mapa ? 'mapa' : 'local', destinoId: dst.mapa ?? dst.local ?? 'cidade', ...(p.altura != null ? { altura: p.altura } : {}), _extra: Object.fromEntries(Object.entries(dst).filter(([k]) => k !== 'mapa' && k !== 'local')) } });
+    const { x: _x, y: _y, nome: _n, anim: _a, altura: _al, destino: _d, ...extraTopo } = p;
+    E.itens.push({ k: 'passagem', p: [p.x, p.y], o: { nome: p.nome ?? 'Passagem', anim: p.anim ?? 'corte', destinoTipo: dst.mapa ? 'mapa' : 'local', destinoId: dst.mapa ?? dst.local ?? 'cidade', ...(p.altura != null ? { altura: p.altura } : {}), _extra: Object.fromEntries(Object.entries(dst).filter(([k]) => k !== 'mapa' && k !== 'local')), _extraTopo: extraTopo } });
   }
   preencherCampos();
   carregarImagem(d.imagem);
@@ -82,7 +85,7 @@ function montar() {
   const p4 = (i) => [arred(i.a[0]), arred(i.a[1]), arred(i.b[0]), arred(i.b[1])];
   const paredes = de('parede').map((i) => { const o = limpar(i.o); return Object.keys(o).length ? { p: p4(i), ...o, ...(o.esp != null ? { esp: Number(o.esp) } : {}), ...(o.altura != null ? { altura: Number(o.altura) } : {}) } : p4(i); });
   if (paredes.length) d.paredes = paredes;
-  const portas = de('porta').map((i) => ({ p: p4(i), revela: String(i.o.revela ?? '').split(',').map((s) => s.trim()).filter(Boolean), ...(Number(i.o.sentido ?? 1) !== 1 ? { sentido: Number(i.o.sentido) } : {}), ...(i.o.fixa ? { fixa: true } : {}) }));
+  const portas = de('porta').map((i) => ({ p: p4(i), revela: String(i.o.revela ?? '').split(',').map((s) => s.trim()).filter(Boolean), ...(Number(i.o.sentido ?? 1) !== 1 ? { sentido: Number(i.o.sentido) } : {}), ...(i.o.fixa ? { fixa: true } : {}), ...(i.o._extra ?? {}) }));
   if (portas.length) d.portas = portas;
   if (de('grade').length) d.grades = de('grade').map(p4);
   if (de('barreira').length) d.barreiras = de('barreira').map(p4);
@@ -94,10 +97,10 @@ function montar() {
   const numeros = (o) => Object.fromEntries(Object.entries(limpar(o)).map(([k, v]) => [k, typeof v === 'string' && v !== '' && !Number.isNaN(Number(v)) && k !== 'cor' && k !== 'tampo' && k !== 'pes' ? Number(v) : v]));
   if (de('movel').length) d.moveis = de('movel').map((i) => ({ tipo: i.o.tipo, x: arred(i.p[0]), y: arred(i.p[1]), ...numeros(i.o) }));
   if (de('luz').length) d.luzes = de('luz').map((i) => ({ x: arred(i.p[0]), y: arred(i.p[1]), ...numeros(i.o) }));
-  if (de('camera').length) d.cameras = de('camera').map((i) => ({ nome: i.o.nome || 'Câmera', de: i.a.map(arred), para: i.b.map(arred), ...(i.o.altura ? { altura: Number(i.o.altura) } : {}) }));
+  if (de('camera').length) d.cameras = de('camera').map((i) => ({ nome: i.o.nome || 'Câmera', de: i.a.map(arred), para: i.b.map(arred), ...(i.o.altura ? { altura: Number(i.o.altura) } : {}), ...(i.o._extra ?? {}) }));
   const ch = de('chegada')[0];
-  if (ch) d.chegada = { de: ch.a.map(arred), para: ch.b.map(arred) };
-  if (de('passagem').length) d.passagens = de('passagem').map((i) => ({ x: arred(i.p[0]), y: arred(i.p[1]), ...(i.o.altura ? { altura: Number(i.o.altura) } : {}), nome: i.o.nome || 'Passagem', anim: i.o.anim || 'corte', destino: { [i.o.destinoTipo === 'local' ? 'local' : 'mapa']: i.o.destinoId || 'cidade', ...(i.o._extra ?? {}) } }));
+  if (ch) d.chegada = { de: ch.a.map(arred), para: ch.b.map(arred), ...(ch.o._extra ?? {}) };
+  if (de('passagem').length) d.passagens = de('passagem').map((i) => ({ x: arred(i.p[0]), y: arred(i.p[1]), ...(i.o.altura ? { altura: Number(i.o.altura) } : {}), nome: i.o.nome || 'Passagem', anim: i.o.anim || 'corte', destino: { [i.o.destinoTipo === 'local' ? 'local' : 'mapa']: i.o.destinoId || 'cidade', ...(i.o._extra ?? {}) }, ...(i.o._extraTopo ?? {}) }));
   return d;
 }
 
@@ -105,6 +108,9 @@ function montar() {
 const CAMPOS = [['#cId', 'id'], ['#cNome', 'nome'], ['#cLocal', 'local'], ['#cImagem', 'imagem'], ['#cImagemNoite', 'imagemNoite'], ['#cAcabamento', 'acabamento']];
 function preencherCampos() {
   const d = E.d;
+  // Acabamento que a lista não tem (uma textura do mapa, um pacote de fotos): entra como opção, senão a lista o apagaria.
+  const sa = $('#cAcabamento');
+  if (d.acabamento && ![...sa.options].some((o) => o.value === d.acabamento)) { const o = el('option', null, d.acabamento); o.value = d.acabamento; sa.append(o); }
   for (const [s, k] of CAMPOS) $(s).value = d[k] ?? '';
   $('#cCorParede').value = d.corParede ?? '#4b4e52';
   $('#cEscala').value = d.escala ?? '';
@@ -116,7 +122,7 @@ function lerCampos() {
   for (const [s, k] of CAMPOS) { const v = $(s).value.trim(); if (v) d[k] = v; else delete d[k]; }
   d.escala = Number($('#cEscala').value) || d.escala;
   const esp = Number($('#cEspParede').value); if (esp && esp !== 0.22) d.espParede = esp; else delete d.espParede;
-  if ($('#cTeto').checked) d.teto = { cor: $('#cCorTeto').value, ...($('#cVigas').checked ? { vigas: true } : {}), ...(d.teto?.area ? { area: d.teto.area } : {}) }; else delete d.teto;
+  if ($('#cTeto').checked) { const t = { ...(d.teto ?? {}), cor: $('#cCorTeto').value }; if ($('#cVigas').checked) t.vigas = true; else delete t.vigas; d.teto = t; } else delete d.teto;
 }
 // A cor da parede só entra no arquivo se a pessoa mexer nela (com acabamento, ela tinge a textura).
 $('#cCorParede').addEventListener('change', (e) => { guardar(); E.d.corParede = e.target.value; pedirDesenho(); });
@@ -253,7 +259,12 @@ function desenharProps() {
   for (const [chave, rotulo, tipo, opcoes] of props) {
     const linha = el('label', tipo === 'bool' ? 'marca' : 'linha');
     let campo;
-    if (tipo === 'sel') { campo = el('select'); for (const v of opcoes) { const o = el('option', null, v === '' ? '(o do mapa)' : v); o.value = v; campo.append(o); } campo.value = String(i.o[chave] ?? opcoes[0]); }
+    if (tipo === 'sel') {
+      campo = el('select');
+      const lista = i.o[chave] != null && !opcoes.includes(String(i.o[chave])) ? [...opcoes, String(i.o[chave])] : opcoes;   // valor que a lista não tem também aparece
+      for (const v of lista) { const o = el('option', null, v === '' ? '(o do mapa)' : v); o.value = v; campo.append(o); }
+      campo.value = String(i.o[chave] ?? opcoes[0]);
+    }
     else if (tipo === 'bool') { campo = el('input'); campo.type = 'checkbox'; campo.checked = !!i.o[chave]; }
     else { campo = el('input'); campo.type = tipo === 'num' ? 'number' : tipo === 'cor' ? 'color' : 'text'; if (tipo === 'num') campo.step = 'any'; if (tipo === 'txt' && opcoes) campo.setAttribute('list', opcoes); campo.value = i.o[chave] ?? (tipo === 'cor' ? '#5a4630' : ''); }
     campo.addEventListener('change', () => {
@@ -479,14 +490,20 @@ const selMapa = $('#selMapa');
 let mapas = {};
 async function listarMapas(escolhido) {
   mapas = {};
-  try {
-    const nomes = (await (await fetch('mapas/indice.json', { cache: 'no-store' })).json()).mapas ?? [];
-    for (const n of nomes) { try { const d = await (await fetch('mapas/' + n, { cache: 'no-store' })).json(); if (d.id) mapas[d.id] = d; } catch { /* arquivo com defeito: fica fora da lista */ } }
-  } catch { /* sem índice ainda */ }
+  // Os exemplos (indice.json) e os mapas da pessoa (indice_local.json), como no programa.
+  for (const indice of ['mapas/indice.json', 'mapas/indice_local.json']) {
+    try {
+      const nomes = (await (await fetch(indice, { cache: 'no-store' })).json()).mapas ?? [];
+      for (const n of nomes) { try { const d = await (await fetch('mapas/' + n, { cache: 'no-store' })).json(); if (d.id) mapas[d.id] = d; } catch { /* arquivo com defeito: fica fora da lista */ } }
+    } catch { /* sem esse índice ainda */ }
+  }
   selMapa.replaceChildren();
   const novo = el('option', null, '— novo mapa —'); novo.value = ''; selMapa.append(novo);
   for (const d of Object.values(mapas)) { const o = el('option', null, `${d.nome ?? d.id} (${d.id})`); o.value = d.id; selMapa.append(o); }
   $('#listaMapas').replaceChildren(...Object.keys(mapas).map((id) => { const o = el('option'); o.value = id; return o; }));
+  // Locais da cidade da campanha, se houver: os que os mapas já usam (o campo aceita qualquer outro).
+  const locais = [...new Set(Object.values(mapas).map((d) => d.local).filter(Boolean))].sort();
+  $('#listaLocais').replaceChildren(...locais.map((id) => { const o = el('option'); o.value = id; return o; }));
   selMapa.value = escolhido && mapas[escolhido] ? escolhido : '';
 }
 selMapa.addEventListener('change', () => {
@@ -501,3 +518,6 @@ const pedido = new URLSearchParams(location.search).get('mapa');
 if (pedido && mapas[pedido]) { selMapa.value = pedido; carregar(JSON.parse(JSON.stringify(mapas[pedido]))); estado(`Mapa "${pedido}" aberto.`); }
 else { carregar(novoMapa()); estado('Escolha um mapa na lista ou comece um novo enviando a imagem da planta.'); }
 window.editor = { E, montar, carregar, salvar, usar };
+
+// Para os testes automáticos (ferramentas/testar.py): abrir um mapa e montar o arquivo de volta, sem a interface.
+window.editorTeste = { carregar: (d) => carregar(d), montar: () => montar(), comoSalvar: () => { lerCampos(); return montar(); }, estado: E };

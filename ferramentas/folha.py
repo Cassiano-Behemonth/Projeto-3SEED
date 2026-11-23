@@ -3,7 +3,7 @@
 
 Uso:
   python3 ferramentas/folha.py assets/predios/hotel.png                  # acha as quatro vistas, em uma ou duas fileiras
-  python3 ferramentas/folha.py assets/predios/hotel.png --conferir /tmp/f.png
+  python3 ferramentas/folha.py assets/predios/hotel.png --conferir rascunho/f.png
 
 A folha deve ter as quatro vistas separadas por fundo liso: frente, lateral direita, fundos e telhado visto de cima.
 Elas podem vir numa fileira (nessa ordem, da esquerda para a direita) ou em duas (2 x 2, com rótulos embaixo).
@@ -12,7 +12,7 @@ desenhada embaixo das elevações, iguala a altura das três (para os andares ba
 e imprime o trecho pronto para colar no campo "folhas" do mapa.
 --conferir grava a folha com os retângulos desenhados; --tolerancia N (padrão 28) é quanto a cor do fundo pode variar.
 
-  python3 ferramentas/folha.py assets/predios/capela_modular.png --pecas --conferir /tmp/f.png
+  python3 ferramentas/folha.py assets/predios/capela_modular.png --pecas --conferir rascunho/f.png
 --pecas  Para folhas MODULARES (várias peças soltas: paredes, torres, portas, pilares): lista o retângulo de cada
          peça, numeradas da esquerda para a direita e de cima para baixo. --minimo N ignora o que tiver menos de N px
          de lado (padrão 30; etiquetas de número costumam ser menores). Cada peça vira um item de "folhas" só com
@@ -34,33 +34,66 @@ e imprime o trecho pronto para colar no campo "folhas" do mapa.
          do prédio). Entra pelas bordas e avança enquanto a cor muda menos que N de um pixel para o vizinho (use 5 a
          8); para no traço do desenho. Com isso o --manter pode ser um retângulo folgado em volta da vista, em vez de
          um contorno justo. O que for nítido (um carro, um rótulo por cima do prédio) não sai: remende com apagar.py.
+
+  python3 ferramentas/folha.py assets/predios/hotel.png --alinhar rascunho/alinhar.png
+--alinhar  Conferência de LATERAL ESPELHADA e de DETALHE FORA DO LUGAR (chaminé, torre, cúpula em lugares diferentes
+         em cada vista, que no 3D viram duas ou três). Grava uma imagem com o telhado girado em cima de cada vista, na
+         mesma escala, com linhas-guia a cada 10%: o que sobe do telhado tem que cair na mesma linha na vista de baixo.
+         Mostra também a lateral desvirada e a "volta" (frente, lateral e fundos lado a lado, como quem dá a volta no
+         prédio: a quina direita da frente continua na esquerda da lateral). Se a lateral desvirada bate melhor, use
+         --limpar ... --espelhar naquela vista. Se a chaminé muda de lugar entre as vistas, corrija a folha (ou peça
+         de novo) antes de montar o prédio. Nenhuma ferramenta decide isso sozinha: as fachadas são parecidas demais.
+         As vistas são as que a ferramenta achou; para dar à mão: --frente X0 Y0 X1 Y1 --lado ... --fundos ... --telhado ...
+         --telhado-frente direita|esquerda|cima diz de que lado da vista do telhado fica a frente (padrão: embaixo).
 """
 import json, sys
-from imagem import ler_png, escrever_png
+from imagem import ler_png, escrever_png, redimensionar, girar, espelhar_h, colar, Tela, manchas, np
 from grade import opcao, recortar
 
 
 def fundo_ligado(W, H, rgb, tol):
-    """Marca o fundo: tudo o que se liga à borda da imagem com a cor do canto (o cinza dentro do prédio não entra)."""
+    """Marca o fundo: tudo o que se liga à borda da imagem com a cor do canto (o cinza dentro do prédio não entra).
+    Um pixel é fundo se a cor dele está perto da do canto e se um vizinho já marcado tem cor quase igual à dele (o fundo
+    pode ser um degradê: vale a diferença para o vizinho)."""
     r0, g0, b0 = rgb[0], rgb[1], rgb[2]
-    longe = tol * 3; passo = max(4, tol // 3)   # o fundo pode ser um degradê: vale a diferença para o vizinho
-    fundo = bytearray(W * H); pilha = []
-    for x in range(W): pilha += [(x, -1), ((H - 1) * W + x, -1)]
-    for y in range(H): pilha += [(y * W, -1), (y * W + W - 1, -1)]
-    while pilha:
-        i, de = pilha.pop()
-        if fundo[i]: continue
-        k = i * 3
-        if abs(rgb[k] - r0) > longe or abs(rgb[k + 1] - g0) > longe or abs(rgb[k + 2] - b0) > longe: continue
-        if de >= 0:
-            q = de * 3
-            if abs(rgb[k] - rgb[q]) > passo or abs(rgb[k + 1] - rgb[q + 1]) > passo or abs(rgb[k + 2] - rgb[q + 2]) > passo: continue
+    longe = tol * 3; passo = max(4, tol // 3)
+    if np is not None: return _fundo_ligado_np(W, H, rgb, r0, g0, b0, longe, passo)
+    n = W * H
+    perto = bytearray(map(lambda r, g, b: abs(r - r0) <= longe and abs(g - g0) <= longe and abs(b - b0) <= longe, rgb[0::3], rgb[1::3], rgb[2::3]))
+    def liso(i, j):
+        k, q = i * 3, j * 3
+        return abs(rgb[k] - rgb[q]) <= passo and abs(rgb[k + 1] - rgb[q + 1]) <= passo and abs(rgb[k + 2] - rgb[q + 2]) <= passo
+    fundo = bytearray(n)
+    pilha = [x for x in range(W)] + [(H - 1) * W + x for x in range(W)] + [y * W for y in range(H)] + [y * W + W - 1 for y in range(H)]
+    while pilha:   # o salto de cor é conferido ao empilhar o vizinho, a partir de um pixel já marcado
+        i = pilha.pop()
+        if fundo[i] or not perto[i]: continue
         fundo[i] = 1; x = i % W
-        if x > 0: pilha.append((i - 1, i))
-        if x < W - 1: pilha.append((i + 1, i))
-        if i >= W: pilha.append((i - W, i))
-        if i < W * (H - 1): pilha.append((i + W, i))
+        if x > 0 and not fundo[i - 1] and perto[i - 1] and liso(i, i - 1): pilha.append(i - 1)
+        if x < W - 1 and not fundo[i + 1] and perto[i + 1] and liso(i, i + 1): pilha.append(i + 1)
+        if i >= W and not fundo[i - W] and perto[i - W] and liso(i, i - W): pilha.append(i - W)
+        if i < n - W and not fundo[i + W] and perto[i + W] and liso(i, i + W): pilha.append(i + W)
     return fundo
+
+
+def _fundo_ligado_np(W, H, rgb, r0, g0, b0, longe, passo):
+    """O mesmo, em blocos: ligações entre vizinhos (perto do canto e cor quase igual) e crescimento por trechos."""
+    im = np.frombuffer(bytes(rgb), np.uint8).reshape(H, W, 3).astype(np.int16)
+    perto = (np.abs(im - np.array([r0, g0, b0], np.int16)) <= longe).all(axis=2)
+    liga_h = perto[:, 1:] & perto[:, :-1] & (np.abs(im[:, 1:] - im[:, :-1]) <= passo).all(axis=2)   # (y, x) com (y, x + 1)
+    liga_v = perto[1:, :] & perto[:-1, :] & (np.abs(im[1:, :] - im[:-1, :]) <= passo).all(axis=2)   # (y, x) com (y + 1, x)
+    alc = np.zeros((H, W), bool)
+    alc[0, :] = perto[0, :]; alc[-1, :] = perto[-1, :]; alc[:, 0] |= perto[:, 0]; alc[:, -1] |= perto[:, -1]
+    def varrer(liga, a_):   # trechos: pixels seguidos ligados um ao outro; um trecho alcançado fica todo alcançado
+        h_, w_ = a_.shape; ini = np.ones((h_, w_), bool); ini[:, 1:] = ~liga
+        rot = np.cumsum(ini.ravel()).reshape(h_, w_); tem = np.zeros(rot.max() + 1, bool); tem[rot[a_]] = True
+        return tem[rot]
+    while True:
+        antes = int(alc.sum())
+        alc = varrer(liga_h, alc) & perto
+        alc = (varrer(liga_v.T, alc.T.copy()).T) & perto
+        if int(alc.sum()) == antes: break
+    return bytearray(alc.astype(np.uint8).tobytes())
 
 
 def vistas(W, H, fundo, vao=12):
@@ -83,21 +116,8 @@ def vistas(W, H, fundo, vao=12):
 
 
 def pecas(W, H, fundo, minimo):
-    """Retângulos das peças soltas: grupos de pixels que não são fundo, ligados entre si."""
-    visto = bytearray(fundo); ret = []
-    for i0 in range(W * H):
-        if visto[i0]: continue
-        pilha = [i0]; visto[i0] = 1; x0 = x1 = i0 % W; y0 = y1 = i0 // W
-        while pilha:
-            i = pilha.pop(); x, y = i % W, i // W
-            if x < x0: x0 = x
-            if x > x1: x1 = x
-            if y < y0: y0 = y
-            if y > y1: y1 = y
-            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, 1), (1, -1), (-1, -1)):
-                nx, ny = x + dx, y + dy
-                if 0 <= nx < W and 0 <= ny < H and not visto[ny * W + nx]: visto[ny * W + nx] = 1; pilha.append(ny * W + nx)
-        if x1 - x0 + 1 >= minimo and y1 - y0 + 1 >= minimo: ret.append([x0, y0, x1 + 1, y1 + 1])
+    """Retângulos das peças soltas: grupos de pixels que não são fundo, ligados entre si (também na diagonal)."""
+    ret = [c for _, c, _ in manchas(W, H, fundo, 1, pixels=False) if c[2] - c[0] >= minimo and c[3] - c[1] >= minimo]
     ret.sort(key=lambda r: (round(r[1] / 120), r[0]))
     return ret
 
@@ -293,6 +313,68 @@ def reconhecer(W, H, f, pecas4):
     return v, avisos
 
 
+def alinhar(W, H, rgb, v, saida, telhado_frente='baixo'):
+    """Imagem de conferência: o telhado girado em cima de cada vista, na mesma largura, com linhas-guia; e a volta no prédio."""
+    LB, GAP, ROT = 760, 34, 22
+    def pedaco(r, largura=None, altura=None, quartos=0, desvirar=False):
+        x0, y0, x1, y1 = r; w, h = x1 - x0, y1 - y0
+        if quartos % 2: w, h = h, w
+        nw, nh = (largura, max(1, round(largura * h / w))) if largura else (max(1, round(altura * w / h)), altura)
+        if quartos % 2: px, _ = redimensionar(W, rgb, None, r, nh, nw)
+        else: px, _ = redimensionar(W, rgb, None, r, nw, nh)
+        if quartos:
+            ww, hh = (nh, nw) if quartos % 2 else (nw, nh)
+            nw, nh, px, _ = girar(ww, hh, px, None, quartos)
+        if desvirar: px, _ = espelhar_h(nw, nh, px, None)
+        return nw, nh, px
+    base = {'baixo': 0, 'cima': 2, 'direita': 1, 'esquerda': 3}.get(telhado_frente, 0)
+    T = v.get('telhado')
+    blocos = [('FRENTE', v['frente'], 0, False), ('LATERAL DIREITA', v['lado'], 1, False),
+              ('FUNDOS', v.get('fundos'), 2, False), ('LATERAL DESVIRADA', v['lado'], 1, True)]
+    pecas_ = []
+    for nome, r, q, desv in blocos:
+        if not r: continue
+        tel = pedaco(T, largura=LB, quartos=base + q) if T else None
+        vis = pedaco(r, largura=LB, desvirar=desv)
+        pecas_.append((nome, tel, vis))
+    # volta no prédio: frente, lateral e fundos lado a lado, na mesma altura
+    HV = 300; volta = []
+    for desv in (False, True):
+        fila = [pedaco(v['frente'], altura=HV), pedaco(v['lado'], altura=HV, desvirar=desv)] + ([pedaco(v['fundos'], altura=HV)] if v.get('fundos') else [])
+        volta.append(fila)
+    alt_bloco = lambda p: ROT + (p[1][1] + 8 if p[1] else 0) + p[2][1]
+    linhas_ = [pecas_[i:i + 2] for i in range(0, len(pecas_), 2)]
+    larg_volta = max(sum(f[0] for f in fila) + 6 * (len(fila) - 1) for fila in volta)
+    CW = max(2 * LB + 3 * GAP, larg_volta + 2 * GAP)
+    CH = GAP + sum(max(alt_bloco(p) for p in ln) + GAP for ln in linhas_) + 2 * (ROT + HV + GAP)
+    pix = bytearray(bytes((38, 40, 44)) * (CW * CH)); t = Tela(CW, CH, pix); y = GAP
+    for ln in linhas_:
+        for k, (nome, tel, vis) in enumerate(ln):
+            x = GAP + k * (LB + GAP); yy = y
+            t.texto(nome + ('  (TELHADO GIRADO EM CIMA)' if tel else ''), x, yy, (255, 230, 120), 3, False); yy += ROT
+            topo = yy
+            if tel: colar(CW, CH, pix, None, x, yy, tel[0], tel[1], tel[2], None); yy += tel[1] + 8
+            colar(CW, CH, pix, None, x, yy, vis[0], vis[1], vis[2], None); fim = yy + vis[1]
+            for i in range(11):
+                gx = x + round(i * (LB - 1) / 10)
+                t.linha(gx, topo, gx, fim, (0, 255, 255) if i % 5 else (255, 80, 200), 1, 0.55, 0 if i % 5 else 6)
+                t.texto(f'{i * 10}', gx + 2, fim + 2, (0, 255, 255), 2, False)
+        y += max(alt_bloco(p) for p in ln) + GAP
+    for nome, fila in zip(('VOLTA: FRENTE > LATERAL > FUNDOS', 'VOLTA COM A LATERAL DESVIRADA'), volta):
+        t.texto(nome, GAP, y, (255, 230, 120), 3, False); y += ROT; x = GAP
+        for i, (w_, h_, px_) in enumerate(fila):
+            colar(CW, CH, pix, None, x, y, w_, h_, px_, None)
+            if i: t.linha(x - 3, y, x - 3, y + HV, (255, 80, 200), 2)
+            x += w_ + 6
+        y += HV + GAP
+    escrever_png(saida, CW, CH, pix)
+    print(f'{saida}: telhado em cima de cada vista e a volta no prédio.')
+    print('  Chaminés, torres e cúpulas do telhado devem cair na mesma linha-guia na vista de baixo. Se só baterem na')
+    print('  "LATERAL DESVIRADA" (ou se a volta só continua com ela), a lateral veio espelhada: --limpar ... --espelhar.')
+    print('  Se um detalhe está numa linha no telhado e em outra na vista, ele vai aparecer repetido no 3D: corrija a folha.')
+    if not T: print('  A folha não tem telhado: confira pela volta (a quina direita da frente continua na esquerda da lateral).')
+
+
 def main():
     a = sys.argv[1:]
     if a and a[0] in ('-h', '--help'): print(__doc__); sys.exit(0)
@@ -319,6 +401,10 @@ def main():
         saida = a[a.index('--limpar') + 1]; escrever_png(saida, W, H, limpa, alfa)
         print(f'{saida}: {len(pols)} áreas mantidas; o resto virou fundo #{cor[0]:02x}{cor[1]:02x}{cor[2]:02x}. Confira com --pecas --conferir.')
         return
+    if '--alinhar' in a and '--frente' in a:
+        v = {k: [int(float(n)) for n in opcao(a, '--' + k, 4, [None] * 4)] for k in ('frente', 'lado', 'fundos', 'telhado') if '--' + k in a}
+        if 'lado' not in v: sys.exit('--alinhar com vistas à mão precisa pelo menos de --frente e --lado.')
+        alinhar(W, H, rgb, v, a[a.index('--alinhar') + 1], (a[a.index('--telhado-frente') + 1] if '--telhado-frente' in a else 'baixo')); return
     fundo = fundo_ligado(W, H, rgb, tol)
     if '--pecas' in a:
         etiquetas = 0 if '--sem-etiquetas' in a else apagar_etiquetas(W, H, rgb, fundo)
@@ -367,6 +453,9 @@ def main():
         print('Trecho para o mapa (troque x, y e "largura", em metros; a altura sai da proporção da frente):')
         print('  ' + json.dumps({'imagem': a[0], **{n: r for n, r in zip(nomes, ret)}, 'x': 0, 'y': 0, 'giro': 0, 'largura': 20}, ensure_ascii=False))
         print(f'  Com largura 20 m, a altura fica em {20 * fh / fw:.1f} m.')
+        if '--alinhar' in a:
+            alinhar(W, H, rgb, dict(zip(nomes, ret)), a[a.index('--alinhar') + 1], (a[a.index('--telhado-frente') + 1] if '--telhado-frente' in a else 'baixo'))
+        else: print('Confira a lateral (pode vir espelhada) e a posição das chaminés e torres com --alinhar rascunho/alinhar.png.')
     if '--conferir' in a:
         t = recortar(W, H, rgb, 0, 0, W, H, 1)
         for i, r in enumerate(ret): t.retangulo(r[0], r[1], r[2], r[3], (255, 60, 60), 2); t.texto(nomes[i].upper() if i < 4 else str(i + 1), r[0] + 4, max(0, r[1] - 18), (255, 230, 0), 2)

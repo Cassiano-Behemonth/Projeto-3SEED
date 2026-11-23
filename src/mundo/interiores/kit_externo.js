@@ -83,6 +83,16 @@ export function rocha(b, M, x, z, _ry, { r = 1, h = null, cor = '#6b6e72' } = {}
     b.esfera(M.liso, r * f, x + Math.cos(a) * d, -r * f * 0.3 * (alt / r), z + Math.sin(a) * d, { cor: tom, sy: (alt / r) * (0.7 + acaso(x, z, i + 3) * 0.3), sx: 0.9 + acaso(x, z, i + 1) * 0.25 });
   }
 }
+// Pedra angular (facetada, base achatada): para anéis e muretas de pedra. r = raio no chão, h = altura.
+export function pedra(b, M, x, z, ry = 0, { r = 1, h = null, cor = '#6b6e72' } = {}) {
+  const alt = h ?? r * 0.75, g = new THREE.IcosahedronGeometry(1, 1), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const vx = p.getX(i), vy = p.getY(i), vz = p.getZ(i), j = 0.72 + 0.5 * acaso(vx * 31.7 + x, vz * 17.3 + z, vy * 11.1);
+    p.setXYZ(i, vx * j, Math.max(vy * j, -0.35), vz * j);
+  }
+  g.scale(r * 1.12, alt, r * 0.95); g.computeVertexNormals();
+  b.add(M.liso, g, x, alt * 0.2, z, ry, cor);
+}
 // Árvore de copa redonda. Cerejeira: cor '#f2a6c4'.
 export function arvore(b, M, x, z, _ry, { h = 5, r = 2, cor = '#3d6a2c', tronco = '#4a3524' } = {}) {
   const c = new THREE.Color(cor), ht = Math.max(0.8, h - r * 1.5);
@@ -254,25 +264,48 @@ export function cerca(b, M, x, z, ry = 0, { w = 10, h = 1.25, cor = '#4a3320', v
 const matChama = new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending });
 const matBrasa = new THREE.MeshBasicMaterial({ color: 0xff5a1a });
 matChama.userData.semSombra = matBrasa.userData.semSombra = true;
-export function fogueira(b, M, x, z, ry = 0, { r = 0.9, h = 1.7, cor = '#3a2618', pedras = true, ctx } = {}) {
+// acesa: false deixa só as pedras e a lenha, sem chama e com cinza fria no lugar da brasa.
+export function fogueira(b, M, x, z, ry = 0, { r = 0.9, h = 1.7, cor = '#3a2618', pedras = true, acesa = true, ctx } = {}) {
   por(b, x, z, ry, (s) => {
     if (pedras) for (let i = 0; i < 13; i++) {
       const a = (i / 13) * 6.283, pr = r * (0.17 + acaso(x, z, i) * 0.06);
       s.esfera(M.liso, pr, Math.cos(a) * r * 1.15, -pr * 0.45, Math.sin(a) * r * 1.15, { cor: '#57534d', sy: 0.75 });
     }
-    s.cilindro(matBrasa, r * 0.55, r * 0.7, 0.07, 0, 0, 0, { seg: 12 });
+    if (acesa) s.cilindro(matBrasa, r * 0.55, r * 0.7, 0.07, 0, 0, 0, { seg: 12 });
+    else s.cilindro(M.liso, r * 0.55, r * 0.7, 0.05, 0, 0, 0, { seg: 12, cor: '#2b2826' });
     const c = new THREE.Color(cor);
     for (let i = 0; i < 8; i++) {
       const a = (i / 8) * 6.283 + 0.3, tom = '#' + c.clone().multiplyScalar(0.75 + acaso(x, z, i + 20) * 0.5).getHexString();
       s.tubo(M.liso, [Math.cos(a) * r * 0.9, 0, Math.sin(a) * r * 0.9], [Math.cos(a) * r * 0.1, h, Math.sin(a) * r * 0.1], 0.09, 0.06, { seg: 6, cor: tom });
     }
+    if (!acesa) return;
     s.cilindro(matChama, 0, r * 0.55, h * 0.72, 0, 0.05, 0, { seg: 9 });
     s.cilindro(matChama, 0, r * 0.32, h * 0.95, r * 0.1, 0.05, -r * 0.06, { seg: 7 });
     s.cilindro(matChama, 0, r * 0.28, h * 0.6, -r * 0.16, 0.05, r * 0.1, { seg: 7 });
   });
-  ctx?.anim?.((t) => {
+  if (acesa) ctx?.anim?.((t) => {
     const k = 0.7 + 0.18 * Math.sin(t * 9.1) + 0.12 * Math.sin(t * 23.3 + 1.7);
     matChama.opacity = 0.55 + 0.35 * k; matChama.color.setRGB(1, 0.42 + 0.2 * k, 0.15);
+  });
+}
+
+// Barraca desmontada: a lona enrolada, o feixe de varas amarrado e as estacas soltas, no chão onde ela vai ser montada.
+// w: comprimento do feixe; cor: a da lona.
+export function barracaDesmontada(b, M, x, z, ry = 0, { w = 1.8, cor = '#5d4a42' } = {}) {
+  por(b, x, z, ry, (s) => {
+    const r = 0.2, varas = '#6b5236', corda = '#b9a27a';
+    s.tubo(M.liso, [-w * 0.42, r, -0.3], [w * 0.42, r, -0.3], r, r, { seg: 12, cor }); // lona enrolada
+    for (const sx of [-0.25, 0.25]) s.tubo(M.liso, [w * sx - 0.03, r, -0.3], [w * sx + 0.03, r, -0.3], r + 0.012, r + 0.012, { seg: 12, cor: corda }); // amarras
+    s.caixa(M.liso, w * 0.5, 0.05, 0.55, -w * 0.1, 0, 0.45, { cor: '#' + new THREE.Color(cor).multiplyScalar(0.8).getHexString() }); // lona dobrada
+    for (let i = 0; i < 6; i++) { // feixe de varas
+      const dy = 0.04 + (i % 3) * 0.05, dz = 0.12 + Math.floor(i / 3) * 0.05;
+      s.tubo(M.liso, [-w * 0.55, dy, dz - 0.02], [w * 0.55, dy, dz + 0.02], 0.025, 0.025, { seg: 6, cor: varas });
+    }
+    for (const sx of [-0.3, 0.3]) s.tubo(M.liso, [w * sx - 0.025, 0.09, 0.145], [w * sx + 0.025, 0.09, 0.145], 0.085, 0.085, { seg: 8, cor: corda }); // amarras
+    for (let i = 0; i < 5; i++) { // estacas
+      const a = acaso(x, z, i) * 6.283, ex = w * 0.3 + i * 0.12, ez = 0.65 + acaso(x, z, i + 9) * 0.2;
+      s.tubo(M.liso, [ex, 0.02, ez], [ex + Math.cos(a) * 0.3, 0.02, ez + Math.sin(a) * 0.08], 0.02, 0.012, { seg: 5, cor: '#8a8580' });
+    }
   });
 }
 

@@ -4,7 +4,7 @@
 Uso:
   python3 ferramentas/relevo.py planta.png blocos.json --area X0 Y0 X1 Y1 --claro 38 --altura 2.2
   python3 ferramentas/relevo.py planta.png blocos.json --poligono 1300 470 1300 415 1452 258 1596 258 1596 604 1300 604 \
-          --claro 38 --verde --altura 2.2 --cor "#263a1e" --mascara /tmp/m.png
+          --claro 38 --verde --altura 2.2 --cor "#263a1e" --mascara rascunho/m.png
 
 --area ou --poligono  Onde procurar (pixels). O polígono é uma lista de pontos x y.
 --claro N             Sobe o que é mais claro que N (0 a 255). Use quando a peça é mais clara que o chão em volta.
@@ -20,7 +20,7 @@ Uso:
 Grava em blocos.json uma lista de prédios baixos, sem janela nem porta, cada um com a pintura por cima. Copie a lista
 para o campo "predios" do mapa (ou junte no seu script). As criaturas e a câmera não atravessam os blocos.
 """
-import json, sys
+import json, os, sys
 from imagem import ler_png, escrever_png
 from grade import opcao, opcoes
 from formato import dentro_de
@@ -79,6 +79,7 @@ def main():
             if t not in trechos: blocos.append((t[0], abertos.pop(t), t[1], l))
         for t in trechos: abertos.setdefault(t, l)
     predios = [{'area': [x0 + c0 * cel, y0 + l0 * cel, x0 + c1 * cel, y0 + l1 * cel], 'altura': altura, 'telhado': 'plano', 'cor': cor, 'janelas': False, 'porta': False, 'beiral': 0} for c0, l0, c1, l1 in blocos]
+    os.makedirs(os.path.dirname(os.path.abspath(a[1])), exist_ok=True)
     json.dump(predios, open(a[1], 'w', encoding='utf-8'))
     if '--mascara' in a:
         z = 2; ow, oh = colunas * cel * z, linhas * cel * z; pix = bytearray(ow * oh * 3)

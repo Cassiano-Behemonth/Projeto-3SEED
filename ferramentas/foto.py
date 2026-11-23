@@ -9,32 +9,18 @@ Uso:
   python3 ferramentas/foto.py mapas/meu_mapa.json saida.png --noite     # de noite (padrão: como o mapa abre; --dia força o dia)
   python3 ferramentas/foto.py mapas/meu_mapa.json saida.png --revelar   # abre todas as portas e mostra as salas ocultas
 
+  python3 ferramentas/foto.py mapas/meu_mapa.json saida.png --porta 5174   # se a 5173 estiver ocupada por outro programa
+  python3 ferramentas/foto.py mapas/meu_mapa.json saida.png --espera 600   # mapa enorme: espera até 600 s (padrão 180)
+
 Câmera 0 é a vista de planta; 1 é a primeira de "cameras", e assim por diante. Sem --camera, vem a de planta.
-Precisa do Google Chrome (ou Chromium) instalado. Se o servidor local não estiver no ar, a ferramenta o liga
+Precisa do Google Chrome, do Chromium ou do Microsoft Edge instalado. Se o servidor local não estiver no ar, a ferramenta o liga
 durante a foto e desliga depois. Cada foto leva de 10 a 20 segundos.
 
 Olhe a foto: é ela que mostra o que a prévia 2D não mostra (alturas, telhados, peças viradas, o que ficou feio).
 """
-import json, os, shutil, subprocess, sys, tempfile, time, urllib.request
+import json, os, shutil, subprocess, sys, tempfile
 from grade import opcao, opcoes
-
-RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CHROMES = ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Chromium.app/Contents/MacOS/Chromium',
-           'google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser',
-           r'C:\Program Files\Google\Chrome\Application\chrome.exe', r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe']
-
-
-def achar_chrome():
-    for c in CHROMES:
-        if os.path.isfile(c): return c
-        w = shutil.which(c)
-        if w: return w
-    sys.exit('Não achei o Google Chrome nem o Chromium. Instale um deles para tirar fotos; a prévia 2D (previa.py) continua funcionando.')
-
-
-def no_ar(base):
-    try: urllib.request.urlopen(base + '/mapas/indice.json', timeout=2).read(); return True
-    except Exception: return False
+from navegador import RAIZ, achar_chrome, ServidorLocal, rodar_chrome
 
 
 def main():
@@ -42,10 +28,15 @@ def main():
     if a and a[0] in ('-h', '--help'): print(__doc__); sys.exit(0)
     if len(a) < 2: sys.exit(__doc__)
     d = json.load(open(a[0], encoding='utf-8')); mapa = d['id']
-    indice = json.load(open(os.path.join(RAIZ, 'mapas', 'indice.json'), encoding='utf-8')).get('mapas', [])
-    if os.path.basename(a[0]) not in indice: sys.exit(f'O mapa precisa estar em mapas/indice.json para abrir no programa (acrescente "{os.path.basename(a[0])}").')
+    # O programa lê os exemplos (indice.json) e os mapas da pessoa (indice_local.json); o mapa precisa estar num dos dois.
+    indice = []
+    for nome in ('indice.json', 'indice_local.json'):
+        caminho = os.path.join(RAIZ, 'mapas', nome)
+        if os.path.exists(caminho): indice += json.load(open(caminho, encoding='utf-8')).get('mapas', [])
+    if os.path.basename(a[0]) not in indice: sys.exit(f'O mapa precisa estar em mapas/indice_local.json para abrir no programa (acrescente "{os.path.basename(a[0])}").')
     porta = int(opcao(a, '--porta', 1, [5173])[0]); base = f'http://127.0.0.1:{porta}'
     larg, alt = [int(v) for v in opcao(a, '--tamanho', 2, [1280, 720])]
+    espera = int(opcao(a, '--espera', 1, [180])[0])
     fixos = '&foto=1' + ('&noite=1' if '--noite' in a else '&dia=1' if '--dia' in a else '') + ('&revelar=1' if '--revelar' in a else '')
     vistas = [f'&ang={int(c[0])}' for c in opcoes(a, '--camera', 1)]
     des, paras, alts = opcoes(a, '--de', 2), opcoes(a, '--para', 2), opcoes(a, '--altura', 1)
@@ -54,27 +45,25 @@ def main():
         h = alts[i][0] if i < len(alts) else 1.75
         vistas.append(f'&ang=0&de={de[0]:g},{de[1]:g}&para={para[0]:g},{para[1]:g}&altura={h:g}')
     if not vistas: vistas = ['&ang=0']
-    chrome = achar_chrome(); servidor = None
-    if not no_ar(base):
-        servidor = subprocess.Popen([sys.executable, os.path.join(RAIZ, 'servidor.py')], cwd=RAIZ, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        for _ in range(40):
-            if no_ar(base): break
-            time.sleep(0.25)
-        else: servidor.terminate(); sys.exit('Não consegui ligar o servidor local (python3 servidor.py).')
-    perfil = tempfile.mkdtemp(prefix='mapa3d-foto-'); raiz, ext = os.path.splitext(a[1])
-    try:
-        for n, v in enumerate(vistas, 1):
-            saida = os.path.abspath(a[1] if len(vistas) == 1 else f'{raiz}_{n}{ext}')
-            if os.path.exists(saida): os.remove(saida)
-            url = f'{base}/?mapa={mapa}{v}{fixos}'
-            r = subprocess.run([chrome, '--headless=new', f'--user-data-dir={perfil}', '--no-first-run', '--hide-scrollbars', '--mute-audio',
-                                f'--window-size={larg},{alt}', '--virtual-time-budget=30000', f'--screenshot={saida}', url],
-                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=180)
-            if not os.path.exists(saida): sys.exit('O Chrome não gravou a foto. Saída dele:\n' + r.stdout.decode('utf-8', 'replace')[-600:])
-            print(f'{saida}: {larg} x {alt} px ({v.strip("&").replace("&", ", ")})')
-    finally:
-        shutil.rmtree(perfil, ignore_errors=True)
-        if servidor: servidor.terminate()
+    chrome = achar_chrome()
+    with ServidorLocal(porta, fixa='--porta' in a) as srv:
+        base = srv.base
+        perfil = tempfile.mkdtemp(prefix='mapa3d-foto-'); raiz, ext = os.path.splitext(a[1])
+        try:
+            for n, v in enumerate(vistas, 1):
+                saida = os.path.abspath(a[1] if len(vistas) == 1 else f'{raiz}_{n}{ext}')
+                os.makedirs(os.path.dirname(saida), exist_ok=True)   # quem grava é o Chrome, que não cria a pasta
+                if os.path.exists(saida): os.remove(saida)
+                url = f'{base}/?mapa={mapa}{v}{fixos}'
+                try: r = rodar_chrome(chrome, url, [f'--screenshot={saida}'], perfil, espera=espera, tamanho=(larg, alt))
+                except subprocess.TimeoutExpired:
+                    sys.exit(f'O mapa levou mais de {espera} s para a foto sem janela. Mapas muito grandes (milhares de árvores, como uma mata '
+                             f'inteira) passam disso, porque sem janela o desenho é feito pelo processador. Tente --espera 600, ou confira no '
+                             f'navegador: python3 servidor.py e abra {base}/?mapa={mapa}')
+                if not os.path.exists(saida): sys.exit('O navegador não gravou a foto. Saída dele:\n' + (r.stdout + r.stderr).decode('utf-8', 'replace')[-600:])
+                print(f'{saida}: {larg} x {alt} px ({v.strip("&").replace("&", ", ")})')
+        finally:
+            shutil.rmtree(perfil, ignore_errors=True)
 
 
 if __name__ == '__main__':

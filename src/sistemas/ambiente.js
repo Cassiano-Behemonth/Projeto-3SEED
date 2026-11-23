@@ -134,6 +134,14 @@ export class Ambiente {
   alternarLuzes() { this.luzes = !this.luzes; return this.luzes; }
   definir(noite, imediato = false) { this.alvoF = noite ? 1 : 0; if (imediato) { this.f = this.alvoF; this._lerp(this.f); } }
   get noite() { return this.alvoF > 0.5; }
+  // Clima numa barra só: 0 = dia, 0,5 = fim de tarde, 1 = noite (o que está entre dois deles mistura os dois).
+  get clima() { return this.f > 0.001 ? 0.5 + 0.5 * this.f : 0.5 * (this.tarde ?? 0); }
+  definirClima(v) {
+    v = Math.min(1, Math.max(0, v));
+    if (v <= 0.5) { this.f = this.alvoF = 0; this.tarde = v * 2; }
+    else { const k = (v - 0.5) * 2; this.f = this.alvoF = k; this.tarde = 1 - k; }
+    this._lerp(this.f);
+  }
 
   _mix(a, b, f) { return this._a.set(a).lerp(this._b.set(b), f); }
   _lerp(f) {
@@ -155,8 +163,10 @@ export class Ambiente {
     this.hemi.color.copy(this._mix(DIA.hemiCeu, NOITE.hemiCeu, f));
     this.hemi.groundColor.copy(this._mix(DIA.hemiChao, NOITE.hemiChao, f));
     this.hemi.intensity = nl('hemiInt');
-    this.renderizador.toneMappingExposure = n('expo');
-    this.cena.environmentIntensity = n('env');
+    // "luar" baixo também reduz a exposição e a luz refletida do ambiente à noite (sem isso a noite só escurecia a lua e o céu).
+    const kNoite = 0.5 + 0.5 * Math.min(1, L);
+    this.renderizador.toneMappingExposure = DIA.expo + (NOITE.expo * kNoite - DIA.expo) * f;
+    this.cena.environmentIntensity = DIA.env + (NOITE.env * Math.min(1, L) ** 0.5 - DIA.env) * f;
     this.bloom = n('bloom'); this.figuras = n('figuras');
     this.estrelas.material.opacity = Math.max(0, f * 1.6 - 0.6);
     this.corNevoa.copy(this._mix('#efe6d6', '#4a566e', f));
@@ -274,11 +284,12 @@ export class Ambiente {
     // Ponto de referência entre a câmera e o alvo, para priorizar o que está em quadro.
     const rx = alvo.x * 0.7 + camera.position.x * 0.3, rz = alvo.z * 0.7 + camera.position.z * 0.3;
     for (const l of luzes) l._d = (l.x - rx) ** 2 + (l.z - rz) ** 2;
-    const perto = [...luzes].sort((a, b) => a._d - b._d).slice(0, N_LUZES);
+    // k: fator de cada luz (0 apagada, 1 acesa; a fogueira de um desafio). Apagada, não ocupa uma das luzes de verdade.
+    const perto = luzes.filter((l) => (l.k ?? 1) > 0).sort((a, b) => a._d - b._d).slice(0, N_LUZES);
     this.pontuais.forEach((p, i) => {
       const l = perto[i];
       if (!l) { p.intensity = 0; return; }
-      p.position.set(l.x, l.y, l.z); p.color.set(l.cor); p.intensity = 60 * l.forca * fl; p.distance = l.alcance ?? 48;
+      p.position.set(l.x, l.y, l.z); p.color.set(l.cor); p.intensity = 60 * l.forca * fl * (l.k ?? 1); p.distance = l.alcance ?? 48;
     });
   }
 }

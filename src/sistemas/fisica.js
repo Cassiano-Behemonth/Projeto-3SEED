@@ -18,16 +18,16 @@ export class Fisica {
 
   // Livre de paredes e portas fechadas? (x, z em metros da planta, sem ampliação)
   _semParede(it, x, z, folga) {
-    for (const m of it.muros) if (distanciaAoSegmento(x, z, m) < m.esp / 2 + folga) return false;
+    for (const m of it.muros) if (!m.inativo && distanciaAoSegmento(x, z, m) < m.esp / 2 + folga) return false; // inativo: peça de desafio escondida
     for (const p of it.portas) if (!p.aberta && distanciaAoSegmento(x, z, p.seg) < 0.06 + folga) return false;
     return true;
   }
   // Altura do que há no chão nesse ponto (piso, degrau, tampo de mesa...), em metros do mundo.
   // ref: altura de quem anda. O que está mais de uma pessoa acima (vela, verga, marquise, galho) passa por cima dela.
-  _altura(it, xm, zm, ref = null) {
+  _altura(it, xm, zm, ref = null, terreno = false) {
     this.raio.set(this._o.set(xm, it.origem[1] + 120, zm), this._baixo);
     this.raio.far = 140;
-    const t = this.raio.intersectObject(it.grupo, true).find((h) => h.face && !h.object.material.transparent && !h.object.userData.porta && !h.object.userData.teto && (ref == null || h.point.y <= ref + 2.1));
+    const t = this.raio.intersectObject(it.grupo, true).find((h) => h.face && !h.object.material.transparent && !h.object.userData.porta && !h.object.userData.teto && !h.object.userData.oculto && !(terreno && h.object.userData.atravessavel) && (ref == null || h.point.y <= ref + 2.1));
     return t ? t.point.y : it.origem[1];
   }
 
@@ -91,7 +91,7 @@ export class Fisica {
     }
     // Nunca dentro do terreno: se a encosta ficou acima da câmera, ela sobe por cima. A pé, só vale para subidas
     // baixas (terreno); um telhado ou um beiral ao lado não levanta a câmera, porque ela não entra neles (colisão).
-    const topo = this._altura(it, r.x, r.z), minimo = topo + 0.6 * this.k;
+    const topo = this._altura(it, r.x, r.z, null, true), minimo = topo + 0.6 * this.k;
     if (atual.y + r.dy < minimo && (voando || topo - chao0 <= 2.5 * this.k)) r.dy = minimo - atual.y;
     return r;
   }

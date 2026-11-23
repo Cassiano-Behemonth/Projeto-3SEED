@@ -14,8 +14,8 @@ export const KIT = {
   rackArmas: K.rackArmas, vela: K.vela, barril: K.barril, lareira: K.lareira, banheira: K.banheira, castical: K.castical,
   alcapao: K.alcapao, caixa: K.caixa, cilindro: K.cilindro,
   mastro: KX.mastro, canhao: KX.canhao, timao: KX.timao, gurupes: KX.gurupes, bote: KX.bote,
-  rocha: KX.rocha, arvore: KX.arvore, pinheiro: KX.pinheiro, palmeira: KX.palmeira, arbusto: KX.arbusto,
-  casa: KX.casa, torreAndares: KX.torreAndares, torii: KX.torii, ponte: KX.ponte, poste: KX.poste, tenda: KX.tenda, fogueira: KX.fogueira, cerca: KX.cerca,
+  rocha: KX.rocha, pedra: KX.pedra, arvore: KX.arvore, pinheiro: KX.pinheiro, palmeira: KX.palmeira, arbusto: KX.arbusto,
+  casa: KX.casa, torreAndares: KX.torreAndares, torii: KX.torii, ponte: KX.ponte, poste: KX.poste, tenda: KX.tenda, fogueira: KX.fogueira, barracaDesmontada: KX.barracaDesmontada, cerca: KX.cerca,
   portao: KX.portao, radar: KX.radar, chafariz: KX.chafariz, banco: KX.banco, transformador: KX.transformador, portico: KX.portico, cabo: KX.cabo,
   container: KX.container, domo: KX.domo, parabolica: KX.parabolica, torreTrelica: KX.torreTrelica, veiculo: KX.veiculo, guindaste: KX.guindaste,
 };
@@ -48,7 +48,10 @@ export function criarDeDados(d) {
     }
     for (const q of d.decalques ?? []) P.decalque(q);
     for (const pz of d.pisos ?? []) { const c = contornoDe(pz); if (c) { const cx = c.reduce((s, p) => s + p[0], 0) / c.length, cy = c.reduce((s, p) => s + p[1], 0) / c.length; P.piso(c, pz.acabamento, piso(cx, cy) + (pz.alt ?? 0.03)); } }
-    for (const f of d.folhas ?? []) P.folha({ ...f, base: piso(f.x, f.y) + (f.sobre ?? 0) });
+    // Peça de um desafio ("desafio": nome; "fase": "antes" ou, sem ela, "depois"): vai para um grupo que aparece ou
+    // some quando o mestre marca o desafio como feito (uma cabana para montar, uma fogueira para acender).
+    const emDesafio = (o, base, fn) => (o.desafio ? P.desafio(String(o.desafio), o.fase === 'antes' ? 'antes' : 'depois', o.x, o.y, base, fn) : fn());
+    for (const f of d.folhas ?? []) { const base = piso(f.x, f.y) + (f.sobre ?? 0); emDesafio(f, base, () => P.folha({ ...f, base })); }
     for (const o of paredesDe(d)) {
       const base = piso((o.p[0] + o.p[2]) / 2, (o.p[1] + o.p[3]) / 2);
       P.parede(...o.p, { esp: o.esp ?? d.espParede ?? 0.22, cor: o.cor ?? d.corParede, altura: o.altura ?? d.alturaParede ?? null, base, balanco: P.noBalanco((o.p[0] + o.p[2]) / 2, (o.p[1] + o.p[3]) / 2), ...(o.acabamento !== undefined ? { estilo: o.acabamento } : {}) });
@@ -62,22 +65,34 @@ export function criarDeDados(d) {
       P.barreira(x1, y1, x2, y2);
     }
     for (const [id, rets] of Object.entries(d.salas ?? {})) P.sala(id, rets);
-    for (const p of d.portas ?? []) P.porta(...p.p, { revela: p.revela ?? [], sentido: p.sentido ?? 1, fixa: !!p.fixa, altura: p.altura ?? d.alturaParede ?? null, corVerga: d.corParede ?? null });
+    for (const p of d.portas ?? []) P.porta(...p.p, { revela: p.revela ?? [], sentido: p.sentido ?? 1, fixa: !!p.fixa, altura: p.altura ?? d.alturaParede ?? null, corVerga: d.corParede ?? null, textura: p.textura ?? null, alturaFolha: p.alturaFolha ?? null });
     for (const m of d.moveis ?? []) {
       const fn = KIT[m.tipo];
       if (!fn) { console.warn(`Mapa "${d.id}": móvel de tipo desconhecido "${m.tipo}"`); continue; }
       // "sobre" ergue a peça (uma antena no telhado de um prédio); soma-se à altura da plataforma onde ela está.
-      const { tipo, x, y, giro, sobre, ...op } = m;
+      const { tipo, x, y, giro, sobre, desafio, fase, ...op } = m;
       const base = piso(x, y) + (sobre ?? 0);
       // Árvores no chão vão em lotes, fora do raio do chão (ver Planta.arvore); no balanço do navio, ficam como móvel.
-      if (MATA.has(tipo) && !P.noBalanco(x, y)) P.arvore(fn, x, y, giro ?? 0, { ...op, rng: c.rng }, base);
-      else if (tipo === 'cerca') P.decor(fn, x, y, giro ?? 0, { ...op, rng: c.rng }, base, { comprimento: op.w ?? 10, esp: 0.3 });
-      else P.m(fn, x, y, giro ?? 0, { ...op, rng: c.rng }, base);
+      // Num desafio, tudo vai como móvel, para entrar no grupo dele.
+      emDesafio(m, base, () => {
+        if (MATA.has(tipo) && !P.noBalanco(x, y) && !desafio) P.arvore(fn, x, y, giro ?? 0, { ...op, rng: c.rng }, base);
+        else if (tipo === 'cerca' && !desafio) P.decor(fn, x, y, giro ?? 0, { ...op, rng: c.rng }, base, { comprimento: op.w ?? 10, esp: 0.3 });
+        else P.m(fn, x, y, giro ?? 0, { ...op, rng: c.rng }, base);
+      });
     }
     // "luzPadrao" dá os valores comuns; cada luz pode trocar os seus.
     const lp = { cor: '#ffc98a', forca: 0.15, raio: 5, altura: 2, ...(d.luzPadrao ?? {}) };
-    for (const l of d.luzes ?? []) c.luz(P.X(l.x), piso(l.x, l.y) + (l.altura ?? lp.altura), P.Z(l.y), new THREE.Color(l.cor ?? lp.cor).getHex(), l.forca ?? lp.forca, l.raio ?? lp.raio);
-    return P.construir();
+    for (const l of d.luzes ?? []) {
+      const base = piso(l.x, l.y), luz = c.luz(P.X(l.x), base + (l.altura ?? lp.altura), P.Z(l.y), new THREE.Color(l.cor ?? lp.cor).getHex(), l.forca ?? lp.forca, l.raio ?? lp.raio);
+      if (l.desafio) P.desafioLuz(String(l.desafio), l.fase === 'antes' ? 'antes' : 'depois', l.x, l.y, base, luz);
+    }
+    const r = P.construir();
+    // Ordem e verbo dos desafios: os listados em "desafios" vêm primeiro, na ordem dada, com a "acao" de cada um
+    // ("montar", "acender"...); os outros vêm depois, na ordem em que aparecem, com "montar".
+    const defs = new Map((d.desafios ?? []).map((x, i) => [String(x.nome), { i, acao: x.acao ?? 'montar' }]));
+    for (const x of r.desafios) { x.acao = defs.get(x.nome)?.acao ?? 'montar'; x.ordem = defs.get(x.nome)?.i ?? 1e6; }
+    r.desafios.sort((a, b) => a.ordem - b.ordem);
+    return r;
   };
 }
 

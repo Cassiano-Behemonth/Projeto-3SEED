@@ -2,7 +2,7 @@
 
 Uso:
   python3 ferramentas/quadricula.py entrada.png saida.png
-  python3 ferramentas/quadricula.py entrada.png saida.png --marcar /tmp/marcas.png      # mostra em rosa o que vai sair
+  python3 ferramentas/quadricula.py entrada.png saida.png --marcar rascunho/marcas.png      # mostra em rosa o que vai sair
   python3 ferramentas/quadricula.py entrada.png saida.png --agua                        # segunda passada, só na água
 
 Como funciona: a linha da grade é fina (1 a 2 px) e corre reta por toda a imagem; um traço do desenho não. Para cada
@@ -12,6 +12,8 @@ Linhas que entortam um pouco ou que não têm espaçamento igual (comum em image
 
 --limiar N   quanto a linha precisa se destacar (padrão 7; abaixe para 4 ou 5 se sobrar grade, suba se apagar traços).
 --janela N   meia janela, em px, ao longo da linha (padrão 20).
+--maximo N   contraste máximo de uma linha de grade (padrão 60, na soma das três cores). Acima disso o traço é tratado
+             como desenho e fica. Para uma grade escura, bem marcada, use 150; confira com --marcar se não apagou traços.
 --agua       repete a passada com metade do limiar, só onde a pintura é azulada (na água a grade é clara e fraca).
 --marcar arquivo.png   grava a imagem original com os pixels trocados em rosa, para conferir.
 
@@ -82,10 +84,10 @@ def transpor_mascara(w, h, m):
     return out
 
 
-def limpar(w, h, rgb, limiar, janela, so=None):
-    v, mv = passada(w, h, rgb, limiar, janela, so)
+def limpar(w, h, rgb, limiar, janela, so=None, maximo=60.0):
+    v, mv = passada(w, h, rgb, limiar, janela, so, maximo)
     t = transpor(w, h, v)
-    hz, mh = passada(h, w, t, limiar, janela, transpor_mascara(w, h, so) if so is not None else None)
+    hz, mh = passada(h, w, t, limiar, janela, transpor_mascara(w, h, so) if so is not None else None, maximo)
     marcas = bytearray(a | b for a, b in zip(mv, transpor_mascara(h, w, mh)))
     return transpor(h, w, hz), marcas
 
@@ -94,8 +96,8 @@ def main():
     a = sys.argv[1:]
     if not a or a[0] in ('-h', '--help') or len(a) < 2: print(__doc__); sys.exit(0)
     w, h, rgb = ler_png(a[0])
-    limiar, janela = opcao(a, '--limiar', 7.0), int(opcao(a, '--janela', 20))
-    out, marcas = limpar(w, h, rgb, limiar, janela)
+    limiar, janela, maximo = opcao(a, '--limiar', 7.0), int(opcao(a, '--janela', 20)), opcao(a, '--maximo', 60.0)
+    out, marcas = limpar(w, h, rgb, limiar, janela, maximo=maximo)
     if '--agua' in a:
         azul = bytearray(1 if out[i * 3 + 2] > out[i * 3] + 25 else 0 for i in range(w * h))
         for _ in range(3):  # encolhe 3 px: não mexe nas pedras da margem
@@ -103,7 +105,7 @@ def main():
             for i in range(w, w * h - w):
                 if azul[i] and not (azul[i - 1] and azul[i + 1] and azul[i - w] and azul[i + w]): novo[i] = 0
             azul = novo
-        out, m2 = limpar(w, h, out, limiar * 0.5, janela + 6, azul)
+        out, m2 = limpar(w, h, out, limiar * 0.5, janela + 6, azul, maximo)
         marcas = bytearray(x | y for x, y in zip(marcas, m2))
     escrever_png(a[1], w, h, out)
     print(f'{a[1]}: {w} x {h} px; {marcas.count(1)} pixels de grade trocados ({100 * marcas.count(1) / (w * h):.1f}% da imagem)')

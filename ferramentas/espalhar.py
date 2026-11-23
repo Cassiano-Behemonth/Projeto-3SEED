@@ -122,6 +122,7 @@ def main():
             achou = achou or (round(x), round(y)); movidos += achou != (round(x), round(y))
             saida.append({'tipo': 'poste', 'x': achou[0], 'y': achou[1], 'h': alt, 'cor': '#1c1c1e'})
         print(f'{len(nums) // 2} postes ({movidos} levados para a calçada)')
+    os.makedirs(os.path.dirname(os.path.abspath(a[1])), exist_ok=True)
     json.dump(saida, open(a[1], 'w', encoding='utf-8'), ensure_ascii=False)
     print(f'{a[1]}: {len(saida)} peças. Junte-as ao campo "moveis" do mapa.')
 

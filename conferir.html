@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Conferir a campanha</title>
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
+  </script>
+  <script>window.__erros = []; addEventListener('error', (e) => __erros.push(String(e.message || e))); addEventListener('unhandledrejection', (e) => __erros.push(String(e.reason && e.reason.message || e.reason)));</script>
+  <style>
+    :root { color-scheme: dark; --fundo: #16130f; --texto: #e8e1d4; --fraco: #9d968a; --erro: #ff7a6a; --aviso: #f3c969; --ok: #8fd18f; }
+    body { margin: 0; padding: 24px 16px; background: var(--fundo); color: var(--texto); font: 15px/1.5 system-ui, sans-serif; }
+    main { max-width: 900px; margin: 0 auto; }
+    h1 { font-size: 22px; margin: 0 0 4px; } p { color: var(--fraco); margin: 4px 0 16px; }
+    li { margin: 4px 0; } .erro { color: var(--erro); } .aviso { color: var(--aviso); } .ok { color: var(--ok); }
+    code { background: #2a241d; padding: 1px 5px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Conferir a campanha</h1>
+  <p>Confere as criaturas, os personagens e os objetos de <code>src/campanha.js</code>: imagens e vídeos que faltam, medidas que não batem, poses que não existem, campos com nome errado. Recarregue a página depois de mexer no arquivo. No terminal: <code>python3 ferramentas/validar_campanha.py</code>.</p>
+  <div id="saida">Conferindo...</div>
+  <pre id="resultado" hidden></pre>
+</main>
+<script type="module">
+import { conferirCampanha } from './src/util/conferir_campanha.js';
+const saida = document.getElementById('saida');
+const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+let campanha = null;
+try { campanha = await import('./src/campanha.js'); }
+catch (e) { if (!/Failed to fetch|Importing a module script failed|404/.test(String(e))) campanha = { __falhou: String(e) }; }
+const mapas = [];
+for (const indice of ['mapas/indice.json', 'mapas/indice_local.json']) {
+  try { for (const n of (await (await fetch(indice, { cache: 'no-store' })).json()).mapas ?? []) try { mapas.push(await (await fetch('mapas/' + n, { cache: 'no-store' })).json()); } catch { /* mapa com defeito: validar.py aponta */ } } catch { /* sem essa lista */ }
+}
+let r;
+if (!campanha) r = { erros: [], avisos: [], total: 0, sem: true };
+else if (campanha.__falhou) r = { erros: [`src/campanha.js não carregou: ${campanha.__falhou}`], avisos: [], total: 0 };
+else r = await conferirCampanha(campanha, { base: '', mapas });
+saida.replaceChildren();
+if (r.sem) saida.append(el('p', 'ok', 'Não há src/campanha.js: nada a conferir. Veja "Como acrescentar cada coisa" no README para criar um.'));
+else {
+  saida.append(el('p', r.erros.length ? 'erro' : 'ok', `${r.total} criaturas, personagens e objetos: ${r.erros.length} erros, ${r.avisos.length} avisos.`));
+  const ul = el('ul');
+  for (const e of r.erros) ul.append(el('li', 'erro', 'ERRO  ' + e));
+  for (const a of r.avisos) ul.append(el('li', 'aviso', 'AVISO ' + a));
+  saida.append(ul);
+}
+const pre = document.getElementById('resultado');
+pre.textContent = [`TOTAL ${r.total}`, ...r.erros.map((e) => 'ERRO ' + e), ...r.avisos.map((a) => 'AVISO ' + a), r.sem ? 'SEM CAMPANHA' : '', 'FIM'].filter(Boolean).join('\n');
+window.resultadoConferencia = r;
+document.title = 'pronto';
+</script>
+</body>
+</html>

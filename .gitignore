@@ -31,3 +31,7 @@ assets/interiores/*
 .DS_Store
 __pycache__/
 *.pyc
+
+# Pasta para as imagens de conferência das ferramentas (grade, prévia, fotos): fica fora do git, menos a explicação
+rascunho/*
+!rascunho/LEIA.txt
