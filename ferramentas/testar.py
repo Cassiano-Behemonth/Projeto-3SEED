@@ -292,6 +292,18 @@ def t_outras(pasta):
     else:
         w, h, rgb = ler_png(out); centro = tuple(rgb[(300 * w + 500) * 3:(300 * w + 500) * 3 + 3]); canto = tuple(rgb[(590 * w + 790) * 3:(590 * w + 790) * 3 + 3])
         conferir((w, h) == (800, 600) and centro == (10, 10, 200) and canto == (70, 120, 50), 'compor.py põe o pedaço no lugar e cobre o resto com o fundo', '', f'tamanho {w}x{h}, centro {centro}, canto {canto}')
+    # repetidos: acha as peças iguais ao modelo e ignora a que é diferente
+    d = Desenho(300, 200, (120, 110, 90)); d.ruido(3, 5)
+    posicoes = [(30 + 60 * i, 30 + 60 * j) for i in range(4) for j in range(3)]
+    for x, y in posicoes: d.ret(x, y, x + 24, y + 18, (90, 50, 30)); d.ret(x + 4, y + 3, x + 12, y + 8, (230, 210, 120))
+    d.ret(230, 140, 254, 158, (30, 80, 150))   # uma peça diferente, que não pode entrar
+    rep = os.path.join(pasta, 'repetidos.png'); d.gravar(rep); lista = os.path.join(pasta, 'repetidos.json')
+    r = rodar('repetidos', rep, '--modelo', 28, 28, 58, 52, '--saida', lista)
+    if r.returncode: falha('repetidos.py', r.stderr[-300:])
+    else:
+        achadas = json.load(open(lista, encoding='utf-8')); cerca = lambda a, b: abs(a['x'] - b[0] - 12) <= 4 and abs(a['y'] - b[1] - 9) <= 4
+        acertos = sum(1 for p_ in posicoes if any(cerca(a_, p_) for a_ in achadas))
+        conferir(acertos == len(posicoes) and len(achadas) == len(posicoes), 'repetidos.py acha as 12 peças iguais ao modelo e ignora a diferente', f'{acertos} de {len(posicoes)}', f'achou {len(achadas)} peças e {acertos} das {len(posicoes)} certas')
     # quadricula: a grade sai (a suave, como a das IAs, com o padrão; a escura, com --maximo)
     for nome, cor_linha, extra in (('suave', (58, 106, 40), []), ('escura', (40, 75, 30), ['--maximo', 150])):
         d = Desenho(400, 400, (70, 120, 50)); d.ruido(6, 2)
@@ -397,7 +409,9 @@ def t_equivalencia(pasta, folha, figs, obj):
         hashes = []
         for env in ({}, PURO):
             o = tempfile.mkdtemp(dir=pasta); r = rodar(ferr, *[a.replace('{o}', o) for a in args], env=env)
-            hashes.append((r.returncode, sorted((f, md5(os.path.join(o, f))) for f in os.listdir(o)), [l for l in r.stdout.splitlines() if pasta not in l]))
+            # No Windows a ferramenta imprime a pasta com "/" e aqui ela vem com "\"; compara as duas do mesmo jeito.
+            sem_barra = lambda t: t.replace(chr(92), '/')
+            hashes.append((r.returncode, sorted((f, md5(os.path.join(o, f))) for f in os.listdir(o)), [l for l in r.stdout.splitlines() if sem_barra(pasta) not in sem_barra(l)]))
         conferir(hashes[0] == hashes[1], f'{ferr}.py: com numpy/Pillow dá o mesmo que Python puro', '', 'resultados diferentes')
 
 

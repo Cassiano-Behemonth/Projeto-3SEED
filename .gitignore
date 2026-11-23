@@ -18,6 +18,9 @@ mapas/*
 !mapas/cidade_feudal.json
 
 # Imagens: só as dos exemplos e as texturas fotográficas (Poly Haven, CC0)
+# (as imagens de personagens e criaturas ficam só na cópia local)
+assets/personagens/
+assets/monstros/
 assets/*
 !assets/texturas/
 assets/texturas/*
@@ -35,3 +38,7 @@ __pycache__/
 # Pasta para as imagens de conferência das ferramentas (grade, prévia, fotos): fica fora do git, menos a explicação
 rascunho/*
 !rascunho/LEIA.txt
+
+# Notas de continuidade da cópia completa (memória, originais, scripts da campanha) e configuração do editor
+continuidade/
+.vscode/

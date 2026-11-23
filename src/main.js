@@ -233,6 +233,8 @@ if (params.get('foto') === '1') {
   if (params.get('dia') || params.get('noite')) ambiente.definirTarde(false);
   ambiente.definir(params.get('dia') || params.get('noite') ? params.get('noite') === '1' : ambiente.noite, true); // sem esperar a transição
   if (params.get('revelar') === '1') portas.tudo(true);
+  // &baixas=1: paredes baixas (como o botão "Paredes"), para a vista de planta não ficar escondida atrás de paredes e pilares altos.
+  if (params.get('baixas') === '1') for (const it of Object.values(mundo.interiores)) it.paredes.scale.y = 0.9;
   const par = (k) => (params.get(k) ?? '').split(',').map(Number);
   const de = par('de'), para = par('para');
   if (d && de.length === 2 && para.length === 2 && ![...de, ...para].some(Number.isNaN)) {

@@ -1,9 +1,14 @@
 // Kit de móveis para os interiores. Cada peça nasce na origem com a "frente" para +Z
 // e é colada no construtor da sala em (x, z) com rotação ry (radianos).
 import { Construtor } from '../../util/construtor.js';
+import { acabamentoQuadrado } from './acabamentos.js';
 
 const por = (b, x, z, ry, fn) => { const s = new Construtor(); fn(s); b.anexar(s, x, 0, z, ry); };
 const BRANCO = '#dcdcd6', METAL = '#8a8d90';
+// Peças com "acabamento" (o nome de uma textura: as das paredes, as dos pacotes ou as de "texturas" do mapa) usam a textura no lugar
+// do material liso; "cor" passa a tingir a textura (branco = sem tinta).
+const matDe = (M, acabamento) => (acabamento ? acabamentoQuadrado(M, acabamento) : M.liso);
+const corDe = (acabamento, cor, padrao) => cor ?? (acabamento ? '#ffffff' : padrao);
 
 export function cama(b, M, x, z, ry = 0, { cor = '#5d6b3f', w = 0.95, l = 2 } = {}) {
   por(b, x, z, ry, (s) => {
@@ -26,9 +31,9 @@ export function pia(b, M, x, z, ry = 0) {
     s.cilindro(M.liso, 0.07, 0.1, 0.76, 0, 0, -0.05, { seg: 8, cor: BRANCO });
   });
 }
-export function mesa(b, M, x, z, ry = 0, { w = 1, d = 1, h = 0.76, cor = '#5a4030', pes = '#2a2622' } = {}) {
+export function mesa(b, M, x, z, ry = 0, { w = 1, d = 1, h = 0.76, cor, pes = '#2a2622', acabamento = null } = {}) {
   por(b, x, z, ry, (s) => {
-    s.caixa(M.liso, w, 0.06, d, 0, h - 0.06, 0, { cor });
+    s.caixa(matDe(M, acabamento), w, 0.06, d, 0, h - 0.06, 0, { cor: corDe(acabamento, cor, '#5a4030') });
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) s.caixa(M.liso, 0.06, h - 0.06, 0.06, sx * (w / 2 - 0.07), 0, sz * (d / 2 - 0.07), { cor: pes });
   });
 }
@@ -92,8 +97,8 @@ export function jukebox(b, M, x, z, ry = 0) {
     s.caixa(M.neonVermelho, 0.6, 0.55, 0.04, 0, 0.75, 0.28, { cor: '#ffffff' });
   });
 }
-export function caixote(b, M, x, z, ry = 0, { w = 0.8, h = 0.5, d = 0.6, cor = '#3a3d2e' } = {}) {
-  por(b, x, z, ry, (s) => s.caixa(M.liso, w, h, d, 0, 0, 0, { cor }));
+export function caixote(b, M, x, z, ry = 0, { w = 0.8, h = 0.5, d = 0.6, cor, acabamento = null } = {}) {
+  por(b, x, z, ry, (s) => s.caixa(matDe(M, acabamento), w, h, d, 0, 0, 0, { cor: corDe(acabamento, cor, '#3a3d2e') }));
 }
 export function maca(b, M, x, z, ry = 0, { cor = '#bfe3c0' } = {}) {
   por(b, x, z, ry, (s) => {
@@ -153,10 +158,33 @@ export function alcapao(b, M, x, z, ry = 0, { w = 1.5, d = 1.6, cor = '#4a321e' 
     s.cilindro(M.metal, 0.22, 0.22, 0.04, 0, 0.08, 0, { seg: 16, cor: '#6a5a3a' });
   });
 }
-// "alt" ergue a peça do chão (telhado sobre pilares, copa de árvore, quadro na parede).
-export function caixa(b, M, x, z, ry = 0, { w = 1, h = 1, d = 1, cor = '#5a4630', alt = 0 } = {}) {
-  por(b, x, z, ry, (s) => s.caixa(M.liso, w, h, d, 0, alt, 0, { cor }));
+// Sarcófago de pedra: base e tampa com uma cumeeira. "aberto": a tampa fica deslocada, mostrando o vão. "acabamento" muda a pedra.
+export function sarcofago(b, M, x, z, ry = 0, { w = 0.9, l = 2, h = 0.6, cor, aberto = false, acabamento = null } = {}) {
+  por(b, x, z, ry, (s) => {
+    const mat = matDe(M, acabamento), c = corDe(acabamento, cor, '#6f6a60');
+    s.caixa(mat, w, h, l, 0, 0, 0, { cor: c });
+    if (aberto) s.caixa(M.liso, w - 0.2, 0.04, l - 0.2, 0, h - 0.04, 0, { cor: '#14110e' });   // o vão escuro
+    const tz = aberto ? l * 0.32 : 0;   // a tampa escorregada para um lado
+    s.caixa(mat, w + 0.06, 0.12, l + 0.06, 0.0, h, tz, { cor: c });
+    s.caixa(mat, w * 0.55, 0.08, l * 0.8, 0, h + 0.12, tz, { cor: c });
+  });
 }
-export function cilindro(b, M, x, z, _ry, { r = 0.5, h = 1, cor = '#5a4630', alt = 0 } = {}) {
-  b.cilindro(M.liso, r, r, h, x, alt, z, { seg: 20, cor });
+// Ossário: um monte baixo de ossos e crânios. "w" e "d" são a área; "n" a quantidade de crânios (o resto são ossos longos).
+export function ossario(b, M, x, z, ry = 0, { w = 1.2, d = 1.2, n = 5, cor = '#d8d0b8' } = {}) {
+  por(b, x, z, ry, (s) => {
+    let sem = 7; const rnd = () => { sem = (sem * 16807) % 2147483647; return sem / 2147483647; };
+    s.cilindro(M.liso, Math.min(w, d) * 0.5, Math.min(w, d) * 0.5, 0.06, 0, 0, 0, { seg: 12, cor: '#2b241c' });   // a mancha escura sob os ossos
+    for (let i = 0; i < n; i++) s.esfera(M.liso, 0.1, (rnd() - 0.5) * w * 0.8, 0.12 + rnd() * 0.12, (rnd() - 0.5) * d * 0.8, { cor, sy: 1.1 });
+    for (let i = 0; i < n * 3; i++) {
+      const cx = (rnd() - 0.5) * w * 0.9, cz = (rnd() - 0.5) * d * 0.9, ang = rnd() * Math.PI, c = Math.cos(ang) * 0.22, sn = Math.sin(ang) * 0.22, y = 0.07 + rnd() * 0.08;
+      s.tubo(M.liso, [cx - c, y, cz - sn], [cx + c, y, cz + sn], 0.025, 0.025, { seg: 5, cor });
+    }
+  });
+}
+// "alt" ergue a peça do chão (telhado sobre pilares, copa de árvore, quadro na parede).
+export function caixa(b, M, x, z, ry = 0, { w = 1, h = 1, d = 1, cor, alt = 0, acabamento = null } = {}) {
+  por(b, x, z, ry, (s) => s.caixa(matDe(M, acabamento), w, h, d, 0, alt, 0, { cor: corDe(acabamento, cor, '#5a4630') }));
+}
+export function cilindro(b, M, x, z, _ry, { r = 0.5, h = 1, cor, alt = 0, acabamento = null } = {}) {
+  b.cilindro(matDe(M, acabamento), r, r, h, x, alt, z, { seg: 20, cor: corDe(acabamento, cor, '#5a4630') });
 }

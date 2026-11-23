@@ -8,7 +8,7 @@ Uso:
 Aponta ERROS (o mapa quebra ou fica com defeito visível) e AVISOS (provável engano).
 Termina com código 1 se houver erro. Só usa a biblioteca padrão do Python.
 """
-import json, math, os, re, sys
+import difflib, json, math, os, re, sys
 from imagem import tamanho_png
 from formato import normalizar, contorno_de, altura_do_piso
 
@@ -35,6 +35,16 @@ def _campanha():
     criaturas = [c for c in (ids('MONSTROS'), ids('PERSONAGENS')) if c is not None]
     return ids('INTERIORES') or set(), set().union(*criaturas) if criaturas else None
 INTERIORES_CODIGO, CRIATURAS = _campanha()
+
+
+def acabamentos_conhecidos():
+    """Os nomes de acabamento que o programa entende, lidos de acabamentos.js (os de parede, os dos pacotes e o padrão 'concreto')."""
+    try: txt = open(os.path.join(RAIZ, 'src', 'mundo', 'interiores', 'acabamentos.js'), encoding='utf-8').read()
+    except OSError: return None
+    nomes = set(re.findall(r"nome === '(\w+)'", txt)) | {'concreto'}
+    bloco = re.search(r'const PACOTES = \{(.*?)\};', txt, re.S)
+    if bloco: nomes |= set(re.findall(r'(\w+)\s*:', bloco.group(1)))
+    return nomes
 
 
 def tipos_de_movel():
@@ -206,9 +216,38 @@ def conferir(caminho):
                 if abs(s[e] - s[e + 2]) < 1 and abs(w[e] - w[e + 2]) < 1 and abs(s[e] - w[e]) < 6:
                     lo, hi = max(min(s[o], s[o + 2]), min(w[o], w[o + 2])), min(max(s[o], s[o + 2]), max(w[o], w[o + 2]))
                     if hi - lo > 6: erros.append(f'porta {i + 1}: a parede {j + 1} atravessa o vão da porta; deixe a parede interrompida ali')
+    # Portas de verdade medem uns 0,8 a 1,2 m; se a maioria foge muito disso, a escala provavelmente está errada.
+    vaos = sorted(math.hypot(p['p'][2] - p['p'][0], p['p'][3] - p['p'][1]) * E for p in d.get('portas', []) if isinstance(p.get('p'), list) and len(p['p']) == 4 and all(isinstance(v, (int, float)) for v in p['p']))
+    if len(vaos) >= 3 and not (0.7 <= vaos[len(vaos) // 2] <= 1.8): avisos.append(f'o vão típico das portas é {vaos[len(vaos) // 2]:.2f} m (o usual é 0,8 a 1,2 m): confira a "escala" ({E} m por pixel) ou os vãos')
     for nome in salas:
         if nome not in reveladas: erros.append(f'sala oculta "{nome}" não é revelada por nenhuma porta (ficaria preta para sempre)')
 
+    # Com "moldura" (a borda escura em volta do prédio), um vão na parede externa sem porta, portão ou passagem aparece como um buraco preto.
+    if d.get('moldura') and not d.get('ceuAberto') and len(paredes) > 1:
+        livres = []
+        for i, w in enumerate(paredes):
+            for q in ((w[0], w[1]), (w[2], w[3])):
+                if all(dist_area(q[0], q[1], o, e) > 3 for j, (o, e) in enumerate(zip(paredes, esps)) if j != i): livres.append(q)
+        fechos = [(p['p'][k], p['p'][k + 1]) for p in d.get('portas', []) if isinstance(p.get('p'), list) and len(p['p']) == 4 for k in (0, 2)]
+        fechos += [(m['x'], m['y']) for m in d.get('moveis', []) if m.get('tipo') == 'portao' and isinstance(m.get('x'), (int, float))]
+        fechos += [(p['x'], p['y']) for p in d.get('passagens', []) if isinstance(p.get('x'), (int, float)) and isinstance(p.get('y'), (int, float))]
+        bx0, bx1 = min(min(w[0], w[2]) for w in paredes), max(max(w[0], w[2]) for w in paredes)
+        by0, by1 = min(min(w[1], w[3]) for w in paredes), max(max(w[1], w[3]) for w in paredes)
+        vistos, achados = set(), []
+        for i, a_ in enumerate(livres):
+            for b_ in livres[i + 1:]:
+                dist = math.hypot(a_[0] - b_[0], a_[1] - b_[1]) * E
+                if not (0.5 <= dist <= 4 and (abs(a_[0] - b_[0]) < 6 or abs(a_[1] - b_[1]) < 6)): continue
+                meio = ((a_[0] + b_[0]) / 2, (a_[1] + b_[1]) / 2)
+                if not (min(abs(meio[0] - bx0), abs(meio[0] - bx1), abs(meio[1] - by0), abs(meio[1] - by1)) < 8 + max(esps) / E): continue   # só o contorno do prédio; entre cômodos o vão é normal
+                if any(math.hypot(meio[0] - f[0], meio[1] - f[1]) * E < dist / 2 + 0.5 for f in fechos): continue
+                chave = (round(meio[0] / 10), round(meio[1] / 10))
+                if chave in vistos: continue
+                vistos.add(chave)
+                achados.append((dist, [round(meio[0]), round(meio[1])]))
+        if 0 < len(achados) <= 3:
+            for dist, pos in achados: avisos.append(f'vão de {dist:.1f} m em {pos} no contorno, sem porta, portão nem passagem: com "moldura" ele aparece como um buraco preto. Ponha uma "porta" (pode ser fixa), a peça "portao" ou uma passagem; ou, se for de propósito, ignore')
+        elif achados: avisos.append(f'{len(achados)} vãos no contorno do prédio sem porta, portão nem passagem (por exemplo em {achados[0][1]} e {achados[1][1]}): com "moldura" eles aparecem como buracos pretos. Se forem entradas, ponha "porta" (pode ser fixa) ou "portao"; se a planta pede o vão aberto, ignore')
     kit = tipos_de_movel()
     for i, m in enumerate(d.get('moveis', [])):
         if m.get('tipo') not in kit: erros.append(f'móvel {i + 1}: tipo desconhecido "{m.get("tipo")}". Tipos válidos: {", ".join(sorted(kit))}')
@@ -217,6 +256,19 @@ def conferir(caminho):
         elif any(dist_seg(m['x'], m['y'], p['p']) < 0.4 / E for p in d.get('portas', []) if isinstance(p.get('p'), list) and len(p['p']) == 4): avisos.append(f'móvel {i + 1} ({m.get("tipo")}): está no vão de uma porta e vai travar a passagem')
         for k in ('w', 'd', 'h', 'l', 'r'):
             if k in m and not (0.02 <= m[k] <= 60): avisos.append(f'móvel {i + 1} ({m.get("tipo")}): "{k}" = {m[k]} m parece errado (tamanhos são em metros)')
+    # Escala: mesas, cadeiras e banquetas em fileira ficam a uma distância parecida com o próprio tamanho. Se a vizinha mais próxima está a
+    # menos da metade do lado menor da peça, elas se sobrepõem: a escala está pequena demais (ou o tamanho escrito, grande demais).
+    LADO = {'mesa': (1.0, 1.0), 'cadeira': (0.44, 0.44), 'banqueta': (0.4, 0.4)}
+    grupos = {}
+    for m in d.get('moveis', []):
+        if isinstance(m, dict) and m.get('tipo') in LADO and isinstance(m.get('x'), (int, float)) and isinstance(m.get('y'), (int, float)):
+            lado = min(float(m.get('w') or LADO[m['tipo']][0]), float(m.get('d') or LADO[m['tipo']][1]))
+            grupos.setdefault((m['tipo'], lado), []).append((m['x'], m['y']))
+    for (tipo, lado), pts in grupos.items():
+        if len(pts) < 6: continue
+        vizinhas = sorted(min(math.hypot(a_[0] - b_[0], a_[1] - b_[1]) for j, b_ in enumerate(pts) if j != i) * E for i, a_ in enumerate(pts))
+        mediana = vizinhas[len(vizinhas) // 2]
+        if mediana < 0.5 * lado: avisos.append(f'{len(pts)} peças "{tipo}" de {lado:g} m de lado ficam a só {mediana:.2f} m da vizinha mais próxima (mediana): elas se sobrepõem. A "escala" ({E} m por pixel) pode estar pequena demais, ou o tamanho escrito grande demais; meça um móvel ou uma porta da pintura')
     luzes = d.get('luzes', [])
     if len(paredes) <= 4 and not d.get('portas') and not d.get('moveis') and not d.get('folhas') and not d.get('predios') and not d.get('plataformas'): avisos.append('o mapa só tem o contorno (sem paredes internas, portas ou móveis). Se a imagem não é uma planta vista de cima, pare: veja o Passo 0 em AGENTS.md')
     for i, pl in enumerate(d.get('plataformas') or []):
@@ -269,6 +321,22 @@ def conferir(caminho):
     for i, q in enumerate(d.get('decalques') or []):
         if not isinstance(q, dict) or not q.get('imagem') or not os.path.exists(os.path.join(RAIZ, q.get('imagem', ''))): erros.append(f'decalque {i + 1}: "imagem" não encontrada'); continue
         if not all(isinstance(q.get(k), (int, float)) for k in ('x', 'y', 'largura')): erros.append(f'decalque {i + 1}: precisa de "x", "y" (pixels da planta) e "largura" (metros)')
+    # Um nome de acabamento que o programa não conhece vira concreto cinza, sem erro nenhum; avisa antes.
+    conhecidos = acabamentos_conhecidos()
+    if conhecidos is not None:
+        validos = conhecidos | set((d.get('texturas') or {}).keys())
+        usos = [('"acabamento" do mapa', d.get('acabamento')), ('"acabamentoPredios"', d.get('acabamentoPredios'))]
+        usos += [(f'parede {i + 1}', w.get('acabamento')) for i, w in enumerate(d.get('paredes') or []) if isinstance(w, dict)]
+        usos += [(f'prédio {i + 1}', pr.get('acabamento')) for i, pr in enumerate(d.get('predios') or []) if isinstance(pr, dict)]
+        usos += [(f'prédio {i + 1} (telhado)', pr.get('telhadoAcabamento')) for i, pr in enumerate(d.get('predios') or []) if isinstance(pr, dict)]
+        usos += [(f'piso {i + 1}', pz.get('acabamento')) for i, pz in enumerate(d.get('pisos') or []) if isinstance(pz, dict)]
+        usos += [(f'móvel {i + 1} ({m.get("tipo")})', m.get('acabamento')) for i, m in enumerate(d.get('moveis') or []) if isinstance(m, dict)]
+        vistos = set()
+        for onde, nome in usos:
+            if isinstance(nome, str) and nome and nome not in validos and nome not in vistos:
+                vistos.add(nome)
+                perto = difflib.get_close_matches(nome, sorted(validos), 1)
+                avisos.append(f'{onde}: o acabamento "{nome}" não existe e sairia como concreto cinza' + (f' (quis dizer "{perto[0]}"?)' if perto else '') + '. Os nomes válidos estão no guia, em "acabamento", ou em "texturas" do mapa')
     for nome, t in (d.get('texturas') or {}).items():
         if not isinstance(t, dict) or not t.get('imagem') or not os.path.exists(os.path.join(RAIZ, t.get('imagem', ''))): erros.append(f'textura "{nome}": "imagem" não encontrada')
     for i, pz in enumerate(d.get('pisos') or []):
@@ -341,6 +409,7 @@ def conferir(caminho):
         if sala_de(cx, cy): erros.append(f'a chegada fica dentro da sala oculta "{sala_de(cx, cy)}"; quem entra apareceria numa sala que ainda está escondida')
         if na_parede(cx, cy): erros.append('a chegada fica dentro de uma parede')
     for i, c in enumerate(d.get('cameras', [])):
+        if ponto(c.get('de')) and not andavel(*c['de']): avisos.append(f'câmera {i + 1} ({c.get("nome", "")}): o ponto "de" fica a mais de 2 m fora da imagem; o programa traz a câmera para dentro e a vista muda')
         if isinstance(c.get('de'), list) and na_parede(*c['de']): avisos.append(f'câmera {i + 1} ({c.get("nome", "")}): o ponto "de" fica dentro de uma parede')
         # Câmera de fora (do mar, do alto) é normal; o que o programa corta é o ponto olhado, e aí puxa a câmera junto.
         if ponto(c.get('para')) and not andavel(*c['para']): avisos.append(f'câmera {i + 1} ({c.get("nome", "")}): olha para um ponto a mais de 2 m fora da imagem; o programa traz esse ponto (e a câmera) para dentro e a vista muda')

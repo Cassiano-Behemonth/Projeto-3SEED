@@ -297,6 +297,7 @@ Todas em `ferramentas/`, só com o Python padrão (3.8 ou mais novo; com numpy e
 | Preparar a imagem | `ampliar.py` | Aumenta o chão em volta da pintura (mapa maior, mata em volta) |
 | Preparar a imagem | `compor.py` | Monta um chão grande com pedaços de uma pintura espalhados e ligados por trilhas (afastar as partes de um lugar sem mudar a escala) |
 | Montar as peças | `folha.py` | Acha as vistas de uma folha de prédio, em uma ou duas fileiras, e diz qual é qual; avisa quando as medidas não combinam; `--pecas` para folhas modulares (tira as etiquetas de número); limpa folhas sujas (`--limpar`, `--nevoa`, `--papel`); `--alinhar` põe o telhado em cima de cada vista para conferir lateral espelhada e chaminé fora do lugar |
+| Montar as peças | `repetidos.py` | Acha as peças iguais a um exemplo marcado (carteiras, bancos, camas) e imprime o trecho de `moveis` |
 | Montar as peças | `espalhar.py` | Espalha mata onde o chão é verde e leva postes para a calçada, sem tampar câmeras |
 | Montar as peças | `relevo.py` | Ergue em blocos o que tem certa cor (sebes de labirinto, muretas, canteiros) |
 | Conferir | `validar.py` | Aponta erros e avisos do arquivo do mapa: campos com valor errado, imagens que faltam, peças, câmeras e chegada fora da área em que se anda, desafios incompletos, criaturas que não existem, área cercada por grade sem entrada. `--tudo` confere todos os mapas e as listas (arquivo listado que não existe, `id` repetido, mapa fora das listas) |

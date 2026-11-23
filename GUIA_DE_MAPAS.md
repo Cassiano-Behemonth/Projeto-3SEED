@@ -25,8 +25,9 @@ Se a pessoa tem as imagens em camadas (veja o `README.md`), o mapa se monta assi
 5. **Folha modular** (capela, ruína): `folha.py --pecas --conferir rascunho/f.png`. As etiquetas de número saem sozinhas; a numeração é da ferramenta, não a pintada. Paredes com `profundidade` de 0,5 a 0,8 m em volta, torres sem profundidade, e o chão por dentro com `pisos` (as peças de lajota da folha viram `texturas`). **Não use a planta da folha como decalque**: o desenho dela fica aparecendo dentro.
 6. **Chão especial** (pátio da subestação): `decalques`, e as peças 3D por cima nas posições pintadas.
 7. **Casas pequenas:** itens de `predios` com `acabamento` e `telhadoAcabamento` do atlas. Cada uma é escrita no script; não se montam sozinhas.
-8. **Mata e postes:** `python3 ferramentas/espalhar.py mapas/<id>.json arvores.json --mata --zona ...` e `--postes x y ...`. Ela evita prédios, água e a frente das câmeras.
-9. **Fotos.** Vista de planta e uma de frente de cada prédio. O validador avisa de câmera dentro de prédio e de árvore na frente da câmera.
+8. **Peças repetidas** (carteiras, bancos, camas): `python3 ferramentas/repetidos.py planta.png --modelo X0 Y0 X1 Y1 --area ... --tipo mesa --mapa mapas/<id>.json --saida rascunho/mesas.json` acha todas a partir de um exemplo.
+9. **Mata e postes:** `python3 ferramentas/espalhar.py mapas/<id>.json arvores.json --mata --zona ...` e `--postes x y ...`. Ela evita prédios, água e a frente das câmeras.
+10. **Fotos.** Vista de planta e uma de frente de cada prédio. O validador avisa de câmera dentro de prédio e de árvore na frente da câmera.
 
 ## Que imagem serve
 
@@ -81,7 +82,7 @@ O que não tem conserto: o que está pintado nas paredes some sob a parede 3D; m
 
 ## Ferramentas
 
-Só precisam do Python padrão (no Windows, `py` no lugar de `python3`; com numpy e Pillow instalados, ficam mais rápidas). Leem qualquer PNG, mas só PNG de verdade: algumas imagens têm extensão `.png` e são WebP ou JPEG (a ferramenta avisa); converta antes com `ffmpeg -i entrada saida.png` ou, no Mac, `sips -s format png entrada --out saida.png`. As imagens de conferência vão bem em `rascunho/`, que fica fora do git.
+Só precisam do Python padrão (no Windows, `py` no lugar de `python3`, e `open(arquivo, "w", encoding="utf-8")` nos scripts que geram o mapa, senão o validador não consegue ler; com numpy e Pillow instalados, ficam mais rápidas). Leem qualquer PNG, mas só PNG de verdade: algumas imagens têm extensão `.png` e são WebP ou JPEG (a ferramenta avisa); converta antes com `ffmpeg -i entrada saida.png` ou, no Mac, `sips -s format png entrada --out saida.png`. As imagens de conferência vão bem em `rascunho/`, que fica fora do git.
 
 ```
 python3 ferramentas/grade.py assets/interiores/planta.png rascunho/g.png --passo 100
@@ -101,13 +102,14 @@ python3 ferramentas/compor.py chao_novo.png --tamanho 4000 3200 --fundo pintura.
 - **`validar.py`** aponta erros e avisos: campo faltando, imagens de tamanhos diferentes ou que não existem (`imagemPlanta`, textura de porta), paredes sobrepostas, sala oculta sem porta, porta estreita ou que não encosta em parede, móvel de tipo desconhecido, chegada dentro de sala oculta, luz dentro de parede, passagem para mapa que não existe, chegada, câmera ou passagem a mais de 2 m fora da imagem, valores fora do lugar (`hora`, `luar`, `lua`, `vao` de folha, `alturaFolha`), desafios sem peça ou só com peças de "antes", nomes em `criaturas` que a campanha não tem, e área cercada por grade (com ou sem paredes) que ninguém alcança andando, porque a abertura falta ou tem menos de uns 0,6 m. `--tudo` confere todos os mapas de uma vez e as próprias listas: arquivo listado que não existe, o mesmo mapa nas duas listas, dois mapas com o mesmo `id` e mapa na pasta que nenhuma lista tem (ele não aparece no programa).
 - **`comparar.py`** grava as duas imagens em faixas verticais alternadas (se as linhas das paredes quebram nas emendas, as imagens estão deslocadas) e mede o deslocamento em várias regiões, pelas bordas do desenho: diz se as duas batem ou de quantos pixels é a diferença, e onde ela é maior.
 - **`endireitar.py`** transforma uma planta em perspectiva numa planta reta, a partir de quatro cantos do piso. Opções: `--esticar`, `--conferir`, `--recortar`, `--encaixar`.
-- **`foto.py`** tira uma foto do mapa em 3D, sem abrir janela (precisa do Chrome, do Chromium ou do Edge). `--camera n` usa uma câmera do mapa (0 é a de planta); `--de X Y --para X Y --altura M` olha de um ponto a outro da planta; `--noite`, `--dia`, `--revelar`. Dá para pedir várias vistas numa chamada; aí o nome de cada foto diz qual é (`f_cam0.png`, `f_cam2.png`, `f_vista1.png`) e a saída lista o nome de cada câmera. `--porta 5174` se a 5173 estiver ocupada por outro programa; `--espera 600` num mapa enorme (milhares de árvores), que sem janela passa de 3 minutos. **É a conferência que vale:** a prévia mostra se as peças estão no lugar; a foto mostra se o mapa ficou bom.
+- **`foto.py`** tira uma foto do mapa em 3D, sem abrir janela (precisa do Chrome, do Chromium ou do Edge). `--paredes-baixas` baixa as paredes para a vista de planta não ficar escondida atrás de paredes e pilares altos; se a foto sai vazia (mapa ainda carregando), ela tenta de novo sozinha com mais tempo. `--camera n` usa uma câmera do mapa (0 é a de planta); `--de X Y --para X Y --altura M` olha de um ponto a outro da planta; `--noite`, `--dia`, `--revelar`. Dá para pedir várias vistas numa chamada; aí o nome de cada foto diz qual é (`f_cam0.png`, `f_cam2.png`, `f_vista1.png`) e a saída lista o nome de cada câmera. `--porta 5174` se a 5173 estiver ocupada por outro programa; `--espera 600` num mapa enorme (milhares de árvores), que sem janela passa de 3 minutos. **É a conferência que vale:** a prévia mostra se as peças estão no lugar; a foto mostra se o mapa ficou bom.
 - **`apagar.py`** corrige a pintura. Apaga o que atrapalha (a vela pintada no convés, a sombra de um mastro) copiando por cima um pedaço vizinho do piso (`--area` com `--de`), ou cobrindo com as cores da beira quando não há vizinho igual (`--preencher`). **Remendo com "print":** `--ladrilhar X0 Y0 X1 Y1 --amostra SX0 SY0 SX1 SY1` cobre uma área repetindo um pedaço limpo da própria pintura (rua, estacionamento, gramado), para continuar o piso onde ficou um buraco; `--colar SX0 SY0 SX1 SY1 --em X Y` copia um pedaço (uma casa, uma faixa de pedestre) para outro lugar.
 - **`folha.py`** lê a folha de referência de um prédio (quatro vistas sobre fundo liso) e imprime onde está cada vista, pronto para o campo `folhas`. Com `--pecas`, lista as peças soltas de uma folha modular. Folha em **pergaminho** (moldura, manchas, rótulos): `--limpar limpa.png --manter <retângulo de cada vista> --papel` tira o papel e deixa transparentes os vãos presos no desenho (entre as pernas de uma torre, sob uma mesa), que de outro jeito virariam placas opacas. `--espelhar X0 Y0 X1 Y1` desvira uma vista que veio espelhada (na lateral direita, a frente do prédio fica do lado esquerdo da vista). Se a quarta vista tem o tamanho de uma lateral, a folha trouxe as duas laterais e nenhum telhado: use só frente, lado e fundos. **`--alinhar rascunho/a.png`** é a conferência da folha: põe o telhado girado em cima de cada vista, na mesma escala e com linhas-guia, e mostra a "volta" no prédio (frente, lateral e fundos lado a lado). Chaminés, torres e cúpulas têm que cair na mesma linha no telhado e na vista; se só caem na lateral desvirada, ela veio espelhada. Nenhuma ferramenta decide isso sozinha: olhe.
 - **`quadricula.py`** tira a grade de um mapa de batalha (linhas finas, mesmo irregulares). `--marcar` mostra em rosa o que sai; `--agua` faz uma segunda passada mais fina na água, onde a grade é clara; `--maximo 150` tira também uma grade escura, bem marcada (o padrão só tira as suaves, para não apagar traços do desenho). A rosa dos ventos e a moldura não saem: `apagar.py --ladrilhar` e corte.
 - **`ampliar.py`** põe a pintura no meio de um chão maior, coberto com um pedaço do próprio chão (`--amostra`), escurecendo para mata longe dela (`--escurecer 0.65`). Só se anda até 2 m além da borda da imagem: é assim que um mapa fica maior que a pintura sem mudar a escala.
 - **`compor.py`** espalha as partes de uma pintura num chão grande: cada `--peca` é um retângulo da pintura posto onde `--em` manda (o mesmo `--k` em todas; `--forma elipse` para lago e ilha), com a beira irregular, e cada `--trilha` é um caminho de terra em curva passando pelos pontos dados (uma trilha sem saída é só uma trilha que acaba no mato). No fim imprime, pedaço por pedaço, a conta que leva uma posição lida na pintura para o chão novo. A escala do mapa passa a ser a da pintura dividida por `--k`. As amostras de chão (`--fundo`) e de terra (`--terra`) têm de ser limpas: o que houver nelas se repete pelo chão inteiro.
 - **`figuras.py`** e **`objeto.py`** não são para mapas: recortam personagens e montam objetos 3D para a campanha (veja a seção 6 do `README.md`).
+- **`repetidos.py`** acha os móveis que se repetem (carteiras, bancos, camas) a partir de UM exemplo marcado na planta (`--modelo X0 Y0 X1 Y1`, opcionalmente `--area`) e imprime o trecho de `moveis` (`--mapa` calcula `w` e `d` pela escala). Use `--conferir` para ver o que achou; com sombra e luz diferentes baixe `--limiar`. Poupa ler a posição de cada peça na grade. Serve para peças sólidas e nítidas (carteiras, camas, bancos); não serve para brilho, lanternas, caveiras ou ossos, que dão muitos falsos achados: marque esses à mão.
 - **`espalhar.py`** espalha mata onde o chão é verde (`--mata --zona ...`) e leva postes para a calçada mais próxima (`--postes x y ...`), sem pôr nada em prédios, água ou na frente das câmeras.
 - **`relevo.py`** ergue em blocos o que tem certa cor: as sebes de um labirinto, muretas, canteiros. Grava uma lista para juntar em `predios`; `--mascara` mostra antes o que vai subir. `--predios mapas/<id>.json` tira do chão a pintura de todos os prédios com fachada. Grave com outro nome e aponte `imagem` para o arquivo novo.
 - **`previa.py`** desenha o mapa por cima da planta (plataformas em verde-água, prédios em dourado). `--passo 50` põe por cima a mesma grade numerada do `grade.py`, para ler de quantos pixels uma peça está fora. `--contorno` mostra a área que cada parede ocupa de verdade, com a planta visível por baixo; `--sem-rotulos` tira os nomes de salas, móveis e portas; `--recorte` (vários de uma vez), `--zoom` e `--clarear` funcionam como na grade.
@@ -168,7 +170,7 @@ Obrigatórios: `id`, `imagem`, `larguraPx`, `alturaPx`, `escala`. O resto é opc
 | `predios` | Prédios vistos de fora: com chão limpo, casas com textura do atlas; com pintura, volumes que conservam a pintura no telhado. |
 | `folhas` | Prédios montados com uma folha de vistas. Veja "O melhor material de entrada". |
 | `decalques` | Pedaço de chão vindo de outra imagem, deitado sobre o piso. |
-| `pisos` | Piso com textura por cima da pintura, num contorno: `{ "area": [x0, y0, x1, y1], "acabamento": "pisoCapela", "alt": 0.03 }` (ou `"pontos"`). |
+| `pisos` | Piso com textura por cima da pintura, num contorno: `{ "area": [x0, y0, x1, y1], "acabamento": "paralelepipedo", "alt": 0.03 }` (ou `"pontos"`). O `acabamento` aceita os mesmos nomes das paredes (os dos pacotes, como `paralelepipedo`, `arenito`, `calcada`, ou um nome de `texturas` do mapa). Textura escura ou de cor forte: teste na foto, porque a luz de entardecer a escurece. |
 | `texturas` | Quadros de um atlas (ou de uma folha) que viram acabamentos com nome. |
 | `corTopo` | Cor da tampa das paredes. A céu aberto o padrão é a cor da parede; em interiores, preto. |
 | `imagemPredios` | A planta original, quando `imagem` é a versão com os prédios apagados do chão. Mesmo tamanho de `imagem`. |
@@ -220,6 +222,7 @@ Cubra a faixa inteira, descrevendo a parede pelo retângulo que a faixa ocupa: `
 - **Na dúvida sobre onde é a porta, não crie a sala oculta nem a porta: deixe só o vão na parede.** O cômodo fica visível e acessível.
 - A `chegada` não pode ficar dentro de uma sala oculta.
 - **Portão de grade** (de ferro, vazado): não use `portas`, que são folhas sólidas e tapam a vista. Deixe o vão aberto, com a grade pintada no chão, ou ponha a peça `portao`.
+- **Cela ou jaula com cadeado desenhado:** grade não abre. Deixe um vão de 0,8 m ou mais na grade, onde está o cadeado, ou use a peça `portao` com `estilo: "ferro"` se a porta tem de existir.
 - **Cômodo sem porta desenhada:** abra um vão de 1 m na parede que dá para o corredor ou o pátio, perto de onde se chega (a entrada do prédio ou o portão do terreno), e diga que o lugar é chute.
 
 ## Lugares a céu aberto
@@ -399,6 +402,8 @@ Se o lado de fora é só uma borda vazia ou escura, use `moldura` e deixe a `che
 
 Tamanhos em metros; `cor` em hexadecimal. Todos aceitam `x`, `y` (posição na planta) e `giro`.
 
+`caixa`, `cilindro`, `mesa` (o tampo) e `caixote` também aceitam `acabamento`: o nome de uma textura (os mesmos das paredes, os dos pacotes ou um de `texturas` do mapa). Com ele, `cor` passa a tingir a textura (sem `cor`, fica como a textura é). Ex.: `{ "tipo": "cilindro", "x": 400, "y": 300, "r": 0.45, "h": 5, "acabamento": "arenito" }` é uma coluna de pedra.
+
 | `tipo` | Opções |
 |---|---|
 | `cama` | `w`, `l` (comprimento), `cor` (colcha). A cabeceira fica do lado oposto à frente. |
@@ -415,6 +420,8 @@ Tamanhos em metros; `cor` em hexadecimal. Todos aceitam `x`, `y` (posição na p
 | `maca`, `banheira`, `vaso`, `pia`, `sinuca`, `jukebox`, `lareira` | sem opções obrigatórias |
 | `rackArmas` | `w`, `h` |
 | `alcapao` | `w`, `d` |
+| `sarcofago` | `w`, `l`, `h`, `cor`, `acabamento` (a pedra), `aberto: true` (tampa escorregada, mostrando o vão) |
+| `ossario` | `w`, `d` (a área), `n` (crânios; o resto são ossos longos), `cor` |
 | `vela`, `castical` | acesos; combine com uma luz no mesmo ponto |
 
 ### Peças de céu aberto
@@ -456,7 +463,7 @@ Tamanhos em metros; `cor` em hexadecimal. Todos aceitam `x`, `y` (posição na p
 
 Todas as peças, de céu aberto ou não, aceitam `"sobre": <metros>` para ficar em cima de outra coisa. Com giro 0, `w` é a medida na horizontal da imagem e `d` (ou `l`), na vertical. **`giro` positivo gira no sentido anti-horário na tela** (90 = a frente vira para a direita), igual para móveis, folhas e decalques; peça em cima de um decalque girado precisa ter a posição girada junto. Uma peça erguida com `alt` ou `sobre` não deixa as criaturas passarem por baixo; a câmera passa.
 
-`caixa` e `cilindro` servem para o que o kit não tem (um banco de igreja é uma `caixa` baixa e comprida; uma coluna, um `cilindro`). Com `alt` dá para fazer um telhado sobre pilares, a copa de uma árvore ou um quadro na parede (uma caixa fina erguida).
+`caixa` e `cilindro` servem para o que o kit não tem (uma coluna é um `cilindro`; um banco de igreja já existe: `banco` com `estilo: "igreja"`, que funciona também em interiores). Com `alt` dá para fazer um telhado sobre pilares, a copa de uma árvore ou um quadro na parede (uma caixa fina erguida).
 
 **Escadas que sobem:** uma fileira de caixas com alturas crescentes. Criaturas sobem degraus de até 0,3 m. Se a escada leva a outro mapa, ponha uma passagem no topo. Se não leva a lugar nenhum, ou leva a um andar que ainda não é mapa, feche o topo com uma barreira e diga qual passagem falta.
 
@@ -486,6 +493,10 @@ Para o que os jogadores constroem durante a sessão (montar as barracas, acender
 ```
 
 Na tela do mestre aparece o botão **Desafios** entre as câmeras. O painel lista cada desafio com o botão de fazer e de desfazer (montar/desmontar, acender/apagar) e tem "Fazer tudo" e "Recomeçar". Com ele aberto, o nome de cada desafio aparece em cima do lugar, só na tela do mestre. Tudo começa por fazer. As peças em folha sobem do chão em uns 2 segundos, as luzes acendem aos poucos e a segunda tela acompanha. Peça escondida não barra quem anda nem conta como chão.
+
+## Cripta, porão e subsolo
+
+Interior fechado, sem sol: nada de `ceuAberto` nem `hora`. Pé-direito de 2,5 a 3 m (`alturaParede`). Paredes de pedra com `acabamento: "pedraMuro"` (ou `ruina`, pedra velha com musgo) e `corParede` mais escura; `moldura` e `teto` com `area` cobrindo só a parte construída (numa planta em cruz ou em L, o resto da imagem é preto). Luz fraca e quente: `luzPadrao` com `forca` de 0,1 a 0,15 e uma luz a cada 4 ou 6 m, no corredor e em cada cela. Peças: `sarcofago` (com `aberto: true` num ou outro), `ossario`, `alcapao`, `castical`, `barril`, `caixote`; grades e celas pelas regras acima. O que está pintado no chão (ossos, sangue, esqueletos) continua visível e basta; só ponha 3D no que tem volume. Se a planta não mostra a escada ou a saída, o mapa fica avulso (sem `local`, sem passagens) e a chegada vai no corredor mais claro; diga na entrega. Se a imagem de noite for igual à de dia (`comparar.py` avisa), deixe `imagemNoite` de fora.
 
 ## O que o formato ainda não faz
 

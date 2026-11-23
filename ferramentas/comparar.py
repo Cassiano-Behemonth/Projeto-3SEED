@@ -99,6 +99,7 @@ def main():
     faixa = max(4, int(opcao(a, '--faixa', 1, [60])[0])); clarear = opcao(a, '--clarear', 1, [1.0])[0]
     w1, h1, p1 = ler_png(a[0]); w2, h2, p2 = ler_png(a[1])
     w, h = w1, h1
+    if (w1, h1) == (w2, h2) and p1 == p2: print('ATENÇÃO: as duas imagens são IDÊNTICAS (pixel por pixel). Não há versão de noite de verdade: deixe "imagemNoite" de fora, ou peça à IA de imagem a versão escura.')
     if (w1, h1) != (w2, h2):
         dif = abs((w2 / h2) / (w1 / h1) - 1)
         if dif > 0.01: print(f'ATENÇÃO: proporções diferentes ({w1} x {h1} e {w2} x {h2}, {dif * 100:.1f}% de diferença). Não é o mesmo enquadramento; não use como dia e noite.')

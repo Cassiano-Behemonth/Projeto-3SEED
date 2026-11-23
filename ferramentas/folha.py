@@ -293,6 +293,60 @@ def aparar_etiqueta(W, H, rgb, f, r):
     return r, False
 
 
+def altura_na_borda(W, H, f, r, lado):
+    """Altura (0 a 1, em fração da vista) do desenho junto à borda esquerda ou direita da vista: mediana das colunas ali."""
+    x0, y0, x1, y1 = [int(n) for n in r]; hv = max(1, y1 - y0); janela = max(2, int((x1 - x0) * 0.05))
+    colunas = range(x0, x0 + janela) if lado == 'esq' else range(x1 - janela, x1)
+    alturas = []
+    for x in colunas:
+        topo = next((y for y in range(y0, y1) if not f[y * W + x]), None)
+        alturas.append(0 if topo is None else (y1 - topo) / hv)
+    alturas.sort()
+    return alturas[len(alturas) // 2]
+
+
+def picos(W, H, f, r):
+    """Posições (0 a 1, da esquerda para a direita) das saliências estreitas no topo da silhueta: chaminés, torres, cúpulas."""
+    x0, y0, x1, y1 = [int(n) for n in r]; hv, wv = max(1, y1 - y0), max(1, x1 - x0)
+    perfil = []
+    for x in range(x0, x1):
+        topo = next((y for y in range(y0, y1) if not f[y * W + x]), None)
+        perfil.append(0 if topo is None else (y1 - topo) / hv)
+    base = sorted(perfil)[len(perfil) // 2]
+    achados, i = [], 0
+    while i < wv:
+        if perfil[i] > base + 0.08:
+            j = i
+            while j < wv and perfil[j] > base + 0.08: j += 1
+            if (j - i) / wv < 0.15: achados.append(((i + j) / 2) / wv)
+            i = j
+        else: i += 1
+    return achados
+
+
+def picos_diferentes(W, H, f, v):
+    """Chaminé ou torre que aparece em lugares diferentes na frente e nos fundos (os fundos são vistos de trás: a posição se espelha)."""
+    if 'frente' not in v or 'fundos' not in v: return None
+    pf, pb = picos(W, H, f, v['frente']), [1 - p for p in picos(W, H, f, v['fundos'])]
+    sem_par = [p for p in pf if not any(abs(p - q) < 0.07 for q in pb)] + [q for q in pb if not any(abs(p - q) < 0.07 for p in pf)]
+    if not sem_par: return None
+    return (f'chaminés, torres ou cúpulas em lugares diferentes entre a frente e os fundos (frente: {[round(p, 2) for p in pf]}, fundos já espelhados: '
+            f'{[round(q, 2) for q in pb]}, em fração da largura): no 3D elas aparecem repetidas. Corrija a folha (apague ou mova o detalhe) ou confira com --alinhar.')
+
+
+def lateral_espelhada(W, H, f, v):
+    """A volta no prédio tem de fechar: o lado direito da frente continua no esquerdo da lateral, e o direito da lateral no esquerdo dos fundos.
+    Se fecha melhor com a lateral desvirada, devolve uma frase de aviso; senão, None (inclusive quando prédio é simétrico)."""
+    if not all(k in v for k in ('frente', 'lado', 'fundos')): return None
+    fd, le, ld, be = (altura_na_borda(W, H, f, v['frente'], 'dir'), altura_na_borda(W, H, f, v['lado'], 'esq'),
+                      altura_na_borda(W, H, f, v['lado'], 'dir'), altura_na_borda(W, H, f, v['fundos'], 'esq'))
+    normal, espelhada = abs(fd - le) + abs(ld - be), abs(fd - ld) + abs(le - be)
+    if normal - espelhada > 0.12 and espelhada < 0.5 * normal:
+        return ('a lateral parece ESPELHADA: a altura do desenho nas bordas só fecha a volta no prédio (frente, lateral, fundos) com ela desvirada. '
+                'Confira onde ficam varanda, escada e porta (na lateral direita, a frente do prédio fica do lado ESQUERDO); se for isso, use --limpar ... --espelhar na vista.')
+    return None
+
+
 def reconhecer(W, H, f, pecas4):
     """Diz qual das quatro peças é frente, lateral, fundos e telhado; tira a linha de chão e iguala as alturas."""
     info = [aparar_chao(W, H, f, p) for p in pecas4]
@@ -449,6 +503,10 @@ def main():
         if abs(tw - lw) <= 0.15 * lw and abs(th - fh) <= 0.2 * fh:
             avisos.append('a quarta vista tem o tamanho de uma LATERAL, não de um telhado visto de cima: a folha pode trazer as duas laterais e nenhum telhado. Use só frente, lado e fundos (tire "telhado" do trecho); o topo fica com a cor da fachada')
         if abs(p_lado - p_tel) > 0.2 * max(p_lado, p_tel): avisos.append(f'as vistas não combinam: com 20 m de frente, a lateral pede {p_lado:.1f} m de fundo e o telhado {p_tel:.1f} m. Dê "profundidade" pela laje do chão, ou pelo telhado')
+        esp_ = lateral_espelhada(W, H, fundo, dict(zip(nomes, ret)))
+        if esp_: avisos.append(esp_)
+        pd_ = picos_diferentes(W, H, fundo, dict(zip(nomes, ret)))
+        if pd_: avisos.append(pd_)
         for a_ in avisos: print('Atenção: ' + a_)
         print('Trecho para o mapa (troque x, y e "largura", em metros; a altura sai da proporção da frente):')
         print('  ' + json.dumps({'imagem': a[0], **{n: r for n, r in zip(nomes, ret)}, 'x': 0, 'y': 0, 'giro': 0, 'largura': 20}, ensure_ascii=False))

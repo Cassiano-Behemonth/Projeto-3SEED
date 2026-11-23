@@ -12,7 +12,7 @@ export const KIT = {
   cama: K.cama, vaso: K.vaso, pia: K.pia, mesa: K.mesa, mesaRedonda: K.mesaRedonda, cadeira: K.cadeira, banqueta: K.banqueta,
   sofa: K.sofa, balcao: K.balcao, estante: K.estante, sinuca: K.sinuca, jukebox: K.jukebox, caixote: K.caixote, maca: K.maca,
   rackArmas: K.rackArmas, vela: K.vela, barril: K.barril, lareira: K.lareira, banheira: K.banheira, castical: K.castical,
-  alcapao: K.alcapao, caixa: K.caixa, cilindro: K.cilindro,
+  alcapao: K.alcapao, caixa: K.caixa, cilindro: K.cilindro, sarcofago: K.sarcofago, ossario: K.ossario,
   mastro: KX.mastro, canhao: KX.canhao, timao: KX.timao, gurupes: KX.gurupes, bote: KX.bote,
   rocha: KX.rocha, pedra: KX.pedra, arvore: KX.arvore, pinheiro: KX.pinheiro, palmeira: KX.palmeira, arbusto: KX.arbusto,
   casa: KX.casa, torreAndares: KX.torreAndares, torii: KX.torii, ponte: KX.ponte, poste: KX.poste, tenda: KX.tenda, fogueira: KX.fogueira, barracaDesmontada: KX.barracaDesmontada, cerca: KX.cerca,

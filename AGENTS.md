@@ -1,6 +1,6 @@
 # Instruções para agentes de IA
 
-Este projeto é uma semente de mapas 3D para RPG de mesa. O que mais se pede a um agente aqui é: **receber a imagem de uma planta e entregar a primeira versão do mapa**, que a pessoa depois ajusta no editor. O formato e todos os detalhes estão em `GUIA_DE_MAPAS.md`; leia-o antes de escrever o arquivo. `README.md` tem os pedidos prontos para a IA de imagem e a lista do que preparar.
+Este projeto é uma semente de mapas 3D para RPG de mesa. O que mais se pede a um agente aqui é: **receber a imagem de uma planta e entregar a primeira versão do mapa**, que a pessoa depois ajusta no editor. O formato e todos os detalhes estão em `GUIA_DE_MAPAS.md`; leia-o antes de escrever o arquivo. O guia é longo (mais de 500 linhas) e uma leitura só vem cortada: veja os títulos com `grep -n "^##" GUIA_DE_MAPAS.md` e leia por partes (`offset`/`limit`), começando por "Formato do arquivo" e pelas seções que o Passo 0 indicar. `README.md` tem os pedidos prontos para a IA de imagem e a lista do que preparar.
 
 **Cidade, vila ou base inteira:** o material certo vem em camadas: o chão limpo visto de cima (sem nada com altura) e uma folha com frente, lateral, fundos e telhado de cada construção importante, mais um atlas de texturas. Se a pessoa só tem uma pintura inclinada, faça o mapa com ela, mas diga na entrega que o resultado melhora muito com essas imagens e mostre os pedidos da seção 2 do `README.md`.
 
@@ -23,6 +23,7 @@ O repositório funciona logo depois do `git clone`, sem instalar nada:
 | Tirar a grade de batalha da pintura | `quadricula.py`, `apagar.py --ladrilhar` | Regras, abaixo |
 | Chão maior, ou partes do lugar mais afastadas | `ampliar.py`, `compor.py` | Regras, abaixo |
 | Mata, postes, sebes, muretas | `espalhar.py`, `relevo.py` | `--help` de cada uma |
+| Fileiras de móveis iguais (carteiras, bancos, camas) | `repetidos.py` | `--help`; marque um exemplo com `--modelo` e confira com `--conferir` |
 | Personagem ou criatura com poses | `figuras.py` | `README.md`, seção 6 |
 | Objeto 3D (carro, carroça, barco) | `objeto.py` | `README.md`, seção 6 |
 | Vídeo de criatura ou de fundo, sons | ffmpeg (fora do projeto) | `README.md`, seção 7 |
@@ -41,7 +42,7 @@ Antes de qualquer outra coisa:
 |---|---|---|
 | Piso e topo das paredes, como uma planta baixa. Paredes verticais ou horizontais na imagem. | **Reta de cima** | Siga o passo a passo. |
 | Piso reto, mas as paredes mostram a face (uma faixa com quadros, lousas, janelas) além do topo. O contorno do prédio ainda é um retângulo. | **Reta com paredes em ângulo** | Siga o passo a passo, usando a regra de "paredes com a face aparente" do guia. Avise a pessoa. |
-| Navio, cais, acampamento ou outra cena ao ar livre vista reta de cima. | **Reta de cima, a céu aberto** | Siga o passo a passo usando "Céu aberto" e "Pisos elevados e navios" do guia. |
+| Navio, cais, acampamento ou outra cena ao ar livre vista reta de cima; também um prédio com salas fechadas e um pátio ou quadra grande (mais de um terço da planta). | **Reta de cima, a céu aberto** | Siga o passo a passo usando "Céu aberto" e "Pisos elevados e navios" do guia. |
 | Prédio com pátio, quadra ou quintal grande, tudo visto reto de cima (escola, quartel, sítio). | **Reta de cima, misto** | Siga o passo a passo. Se a parte a céu aberto é grande (um terço da planta ou mais), use `ceuAberto`, sem `teto`: os cômodos ficam sem teto, como na vista de cima. Se é só uma faixa de jardim em volta do prédio, use `teto` com `area` sobre o prédio ("O lado de fora do prédio", no guia). |
 | Vista aérea de um lugar inteiro (cidade, vila, base, porto): ruas retas, prédios desenhados em pé e vistos de fora, vários prédios. | **Lugar inteiro visto do alto** | Siga o passo a passo usando "Lugar inteiro visto do alto" do guia: céu aberto e um volume fechado por prédio. Avise a pessoa de que ninguém entra nos prédios. |
 | Ainda é uma planta vista do alto, mas inclinada: o contorno do prédio é um trapézio (paredes laterais inclinadas), a parede do fundo aparece em pé com janelas e portas, os móveis encolhem para o fundo. | **Planta em perspectiva** | Endireite antes (veja abaixo), depois siga o passo a passo como "reta com paredes em ângulo". Avise a pessoa. |
@@ -80,6 +81,9 @@ Quando parar:
 - Diga à pessoa o que viu, com duas ou três evidências medidas na grade. Servem como evidência: uma parede que deveria ser reta e muda de x (ou de y) de uma ponta à outra; o mesmo móvel com tamanhos diferentes perto e longe; linhas paralelas (um corredor, fileiras de bancos) que convergem; a fração da imagem que é piso.
 - Explique o que serve no lugar: a mesma planta vista reta de cima, só com o piso e o topo das paredes, e a versão de noite com o mesmo desenho.
 - Só faça um rascunho sobre a imagem recusada se a pessoa pedir **depois de avisada** dos defeitos (paredes e janelas pintadas deitadas no chão, móveis desalinhados, escala diferente em cada ponto). O pedido inicial "cria o mapa" não conta.
+- **Como fazer esse rascunho** (testado com uma ilustração de igreja): não leia posições na pintura, porque a escala muda de ponto a ponto e o resultado sai torto. Trate a imagem como fundo do piso e monte o lugar com peças 3D e as texturas dos pacotes (`acabamento` nas paredes, em `pisos` e também em `caixa`, `cilindro`, `mesa` e `caixote`), numa escala realista que você escolhe e diz na entrega (uma capela pequena tem uns 10 x 20 m; ajuste `escala` até a planta ter esse tamanho). Use as peças do kit que servem (`banco` com `estilo: "igreja"`, `castical`, `vela`), deixe uma entrada com `porta` ou `portao` (um vão sem peça aparece como buraco preto) e avise que o que era mais bonito na pintura (vitrais, estátuas, teto) não entra.
+
+Atalho: se a maior parte da imagem é parede, janela, teto ou céu (o piso é menos de uns 40% dela), é ilustração; não precisa medir mais nada.
 
 Nenhuma ferramenta faz essa conferência por você.
 
@@ -95,7 +99,7 @@ Nenhuma ferramenta faz essa conferência por você.
 5. **Acrescente o arquivo em `mapas/indice_local.json`** (a lista dos mapas da pessoa; crie com `{"mapas": []}` se não existir). `mapas/indice.json` é só a dos exemplos que vêm com o programa: não mexa nela. `python3 ferramentas/validar.py --tudo` confere se as listas ficaram certas.
 6. **Valide e olhe o resultado**, repetindo até não haver erro, as peças caírem em cima do desenho e o mapa ficar bom de ver. Leia cada aviso: corrija, ou diga na entrega por que ele ficou.
    `python3 ferramentas/validar.py mapas/<id>.json`
-   `python3 ferramentas/previa.py mapas/<id>.json rascunho/p.png --contorno --sem-rotulos`
+   `python3 ferramentas/previa.py mapas/<id>.json rascunho/p.png --contorno --sem-rotulos` (planta escura: acrescente `--clarear 2.5`, como em `grade.py` e `comparar.py`; `foto.py` não usa `--clarear`, porque mostra o mapa com a luz dele)
    `python3 ferramentas/foto.py mapas/<id>.json rascunho/f.png --camera 0 --camera 1 --de X Y --para X Y` (grava `f_cam0.png`, `f_cam1.png`, `f_vista1.png`: o nome diz a câmera)
    `--contorno` mostra a área que cada parede ocupa de verdade, com a planta visível por baixo. A prévia também aceita vários `--recorte` com `--zoom`, como a grade.
    A **foto** é o mapa em 3D de verdade, tirada sem abrir janela (precisa do Chrome, do Chromium ou do Edge). Tire a vista de planta e duas ou três do chão, olhe, e corrija o que estiver feio: peça virada, altura errada, pintura sobrando, lugar escuro. Se não houver Chrome, diga na entrega que não viu o mapa em 3D.
