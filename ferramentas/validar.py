@@ -223,23 +223,41 @@ def conferir(caminho):
         if nome not in reveladas: erros.append(f'sala oculta "{nome}" não é revelada por nenhuma porta (ficaria preta para sempre)')
 
     # Com "moldura" (a borda escura em volta do prédio), um vão na parede externa sem porta, portão ou passagem aparece como um buraco preto.
+    # Vão é o espaço entre duas paredes na MESMA linha, com as pontas soltas uma de frente para a outra e nada no meio. É do contorno
+    # quando, de um dos lados dele, se sai do prédio logo atrás da parede (até 1 m), sem cruzar outra; entre cômodos (ou entre as
+    # paredes de duas celas) é normal. Um vão num recanto do prédio (planta em L) escapa do aviso: melhor faltar que sobrar.
     if d.get('moldura') and not d.get('ceuAberto') and len(paredes) > 1:
-        livres = []
-        for i, w in enumerate(paredes):
-            for q in ((w[0], w[1]), (w[2], w[3])):
-                if all(dist_area(q[0], q[1], o, e) > 3 for j, (o, e) in enumerate(zip(paredes, esps)) if j != i): livres.append(q)
+        def coberto(x, y): return any(dist_area(x, y, o, e) <= 0.5 for o, e in zip(paredes, esps))
+        livres = []   # (ponta, direção em que a parede termina ali, índice da parede, meia espessura em px)
+        for i, (w, e_) in enumerate(zip(paredes, esps)):
+            n_ = math.hypot(w[2] - w[0], w[3] - w[1]) or 1; ux, uy = (w[2] - w[0]) / n_, (w[3] - w[1]) / n_
+            for q, s_ in (((w[0], w[1]), -1), ((w[2], w[3]), 1)):
+                if all(dist_area(q[0], q[1], o, e) > 3 for j, (o, e) in enumerate(zip(paredes, esps)) if j != i): livres.append((q, (s_ * ux, s_ * uy), i, (e_ / 2) / E))
+        passo = max(1.0, min(esps) / E / 2)
+        def sai_do_predio(x, y, nx, ny, limite):
+            for _ in range(int(limite / passo) + 1):
+                x += nx * passo; y += ny * passo
+                if not (bx0 - 1 <= x <= bx1 + 1 and by0 - 1 <= y <= by1 + 1): return True
+                if coberto(x, y): return False
+            return False
         fechos = [(p['p'][k], p['p'][k + 1]) for p in d.get('portas', []) if isinstance(p.get('p'), list) and len(p['p']) == 4 for k in (0, 2)]
         fechos += [(m['x'], m['y']) for m in d.get('moveis', []) if m.get('tipo') == 'portao' and isinstance(m.get('x'), (int, float))]
         fechos += [(p['x'], p['y']) for p in d.get('passagens', []) if isinstance(p.get('x'), (int, float)) and isinstance(p.get('y'), (int, float))]
         bx0, bx1 = min(min(w[0], w[2]) for w in paredes), max(max(w[0], w[2]) for w in paredes)
         by0, by1 = min(min(w[1], w[3]) for w in paredes), max(max(w[1], w[3]) for w in paredes)
         vistos, achados = set(), []
-        for i, a_ in enumerate(livres):
-            for b_ in livres[i + 1:]:
-                dist = math.hypot(a_[0] - b_[0], a_[1] - b_[1]) * E
-                if not (0.5 <= dist <= 4 and (abs(a_[0] - b_[0]) < 6 or abs(a_[1] - b_[1]) < 6)): continue
+        for k_, (a_, da, ia, ma) in enumerate(livres):
+            for b_, db, ib, mb in livres[k_ + 1:]:
+                if ia == ib: continue
+                vx, vy = b_[0] - a_[0], b_[1] - a_[1]; dpx = math.hypot(vx, vy); dist = dpx * E
+                if not 0.5 <= dist <= 4: continue
+                # mesma linha: paredes paralelas, cada ponta apontando para a outra, sem desvio de lado
+                if abs(da[0] * db[1] - da[1] * db[0]) > 0.1 or da[0] * vx + da[1] * vy <= 0 or db[0] * vx + db[1] * vy >= 0: continue
+                if abs(da[0] * vy - da[1] * vx) > max(6, ma + mb): continue
                 meio = ((a_[0] + b_[0]) / 2, (a_[1] + b_[1]) / 2)
-                if not (min(abs(meio[0] - bx0), abs(meio[0] - bx1), abs(meio[1] - by0), abs(meio[1] - by1)) < 8 + max(esps) / E): continue   # só o contorno do prédio; entre cômodos o vão é normal
+                if coberto(*meio): continue
+                lim = max(ma, mb) + 1 / E
+                if not (sai_do_predio(*meio, -da[1], da[0], lim) or sai_do_predio(*meio, da[1], -da[0], lim)): continue
                 if any(math.hypot(meio[0] - f[0], meio[1] - f[1]) * E < dist / 2 + 0.5 for f in fechos): continue
                 chave = (round(meio[0] / 10), round(meio[1] / 10))
                 if chave in vistos: continue
@@ -409,7 +427,6 @@ def conferir(caminho):
         if sala_de(cx, cy): erros.append(f'a chegada fica dentro da sala oculta "{sala_de(cx, cy)}"; quem entra apareceria numa sala que ainda está escondida')
         if na_parede(cx, cy): erros.append('a chegada fica dentro de uma parede')
     for i, c in enumerate(d.get('cameras', [])):
-        if ponto(c.get('de')) and not andavel(*c['de']): avisos.append(f'câmera {i + 1} ({c.get("nome", "")}): o ponto "de" fica a mais de 2 m fora da imagem; o programa traz a câmera para dentro e a vista muda')
         if isinstance(c.get('de'), list) and na_parede(*c['de']): avisos.append(f'câmera {i + 1} ({c.get("nome", "")}): o ponto "de" fica dentro de uma parede')
         # Câmera de fora (do mar, do alto) é normal; o que o programa corta é o ponto olhado, e aí puxa a câmera junto.
         if ponto(c.get('para')) and not andavel(*c['para']): avisos.append(f'câmera {i + 1} ({c.get("nome", "")}): olha para um ponto a mais de 2 m fora da imagem; o programa traz esse ponto (e a câmera) para dentro e a vista muda')

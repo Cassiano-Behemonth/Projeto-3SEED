@@ -391,6 +391,16 @@ def t_mapas(pasta, todos):
         d['id'] = 'teste_cercado'; q = os.path.join(pasta, 'teste_cercado.json'); json.dump(d, open(q, 'w', encoding='utf-8'))
         r = rodar('validar', q); tem = 'área cercada perto de' in r.stdout
         conferir(tem == avisa, f'validar.py: cercado de grade {nome} ' + ('avisa' if avisa else 'não avisa'), '', r.stdout[-300:])
+    # vão no contorno: o da parede de fora avisa; não avisam o corredor alinhado com ele, o espaço entre as paredes de duas celas
+    # (mesmo perto da borda e com uma parede grossa no mapa), as duas pontas de uma parede solta e a câmera longe, no "de"
+    E = 0.035; base = {'id': 'teste_vaos', 'imagem': d['imagem'], 'larguraPx': d['larguraPx'], 'alturaPx': d['alturaPx'], 'escala': E, 'moldura': [150, 150, 850, 650],
+                       'paredes': [[200, 200, 800, 200], {'p': [200, 200, 200, 600], 'esp': 1.4}, [800, 200, 800, 600], [200, 600, 480, 600], [523, 600, 800, 600],
+                                   [200, 400, 480, 400], [523, 400, 800, 400], [300, 200, 300, 240], [400, 200, 400, 240], [600, 230, 646, 230]],
+                       'cameras': [{'nome': 'De longe', 'de': [500, 2000], 'para': [500, 400]}]}
+    for nome, portas, n_esperado in (('sem porta avisa uma vez', [], 1), ('com porta não avisa', [{'p': [480, 600, 523, 600]}], 0)):
+        q = os.path.join(pasta, 'teste_vaos.json'); json.dump(dict(base, portas=portas), open(q, 'w', encoding='utf-8'))
+        r = rodar('validar', q); n = r.stdout.count('no contorno')
+        conferir(n == n_esperado and 'o ponto "de"' not in r.stdout, f'validar.py: vão na parede de fora {nome}', '', r.stdout[-400:])
     r = rodar('validar', '--tudo')
     listas = r.stdout.split('\n')[0]
     conferir('sem problemas' in listas or ('erros' in listas and ' 0 erros' in listas), 'validar.py --tudo: as listas de mapas estão certas', '', r.stdout[:400])
