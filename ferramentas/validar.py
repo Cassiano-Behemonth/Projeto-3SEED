@@ -44,6 +44,53 @@ def tipos_de_movel():
     return set(re.findall(r'(\w+)\s*:', bloco))
 
 
+def areas_presas(W, H, E, bloqueios, grades, inicio):
+    """Áreas que encostam numa grade e que ninguém alcança andando: [(x, y, m²)].
+
+    A planta vira uma malha de células de 0,25 m, até 2 m além da borda da imagem. Paredes e barreiras ("bloqueios":
+    pares (segmento, meia espessura em px)) e grades fecham as células por onde passam; as portas abrem, então não
+    contam. Anda-se a partir de fora da área e do ponto de chegada ("inicio"), com 0,25 m de folga para cada lado (a
+    largura de uma pessoa): um vão de 0,8 m passa, uma fresta de 0,4 m não. Prédios e móveis não entram na conta."""
+    c = 0.25 / E; M = 2 / E
+    while ((W + 2 * M) / c + 3) * ((H + 2 * M) / c + 3) > 600000: c *= 1.5
+    nx, ny = int((W + 2 * M) / c) + 3, int((H + 2 * M) / c) + 3; ox, oy = -M - c, -M - c
+    malha = bytearray(nx * ny)   # 0 livre, 1 parede ou barreira, 2 grade
+    def marcar(sg, meia, valor):
+        x1, y1, x2, y2 = sg; r = max(meia + 0.25 / E, 0.71 * c); dx, dy = x2 - x1, y2 - y1; L2 = dx * dx + dy * dy or 1e-9
+        i0, i1 = max(0, int((min(x1, x2) - r - ox) / c)), min(nx - 1, int((max(x1, x2) + r - ox) / c) + 1)
+        j0, j1 = max(0, int((min(y1, y2) - r - oy) / c)), min(ny - 1, int((max(y1, y2) + r - oy) / c) + 1)
+        for j in range(j0, j1 + 1):
+            py = oy + (j + 0.5) * c
+            for i in range(i0, i1 + 1):
+                px = ox + (i + 0.5) * c; t = max(0.0, min(1.0, ((px - x1) * dx + (py - y1) * dy) / L2))
+                if math.hypot(px - x1 - dx * t, py - y1 - dy * t) <= r: malha[j * nx + i] = valor
+    for sg, meia in bloqueios: marcar(sg, meia, 1)
+    for sg in grades: marcar(sg, 0, 2)
+    visto = bytearray(nx * ny)
+    def espalhar(sementes):
+        pilha = [k for k in sementes if not malha[k] and not visto[k]]
+        for k in pilha: visto[k] = 1
+        celulas = []
+        while pilha:
+            k = pilha.pop(); celulas.append(k); i = k % nx
+            for v in ((k - 1) if i else -1, (k + 1) if i < nx - 1 else -1, k - nx, k + nx):
+                if 0 <= v < nx * ny and not malha[v] and not visto[v]: visto[v] = 1; pilha.append(v)
+        return celulas
+    borda = [i for i in range(nx)] + [(ny - 1) * nx + i for i in range(nx)] + [j * nx for j in range(ny)] + [j * nx + nx - 1 for j in range(ny)]
+    if inicio:
+        i, j = int((inicio[0] - ox) / c), int((inicio[1] - oy) / c)
+        if 0 <= i < nx and 0 <= j < ny: borda.append(j * nx + i)
+    espalhar(borda)
+    presas = []
+    for k in range(nx * ny):
+        if malha[k] or visto[k]: continue
+        celulas = espalhar([k]); area = len(celulas) * (c * E) ** 2
+        if area < 2: continue
+        if not any(malha[v] == 2 for q in celulas for v in (q - 1, q + 1, q - nx, q + nx) if 0 <= v < nx * ny): continue
+        presas.append((ox + (sum(q % nx for q in celulas) / len(celulas) + 0.5) * c, oy + (sum(q // nx for q in celulas) / len(celulas) + 0.5) * c, area))
+    return presas
+
+
 def conferir(caminho):
     erros, avisos = [], []
     repetidas = []
@@ -299,7 +346,13 @@ def conferir(caminho):
         if ponto(c.get('para')) and not andavel(*c['para']): avisos.append(f'câmera {i + 1} ({c.get("nome", "")}): olha para um ponto a mais de 2 m fora da imagem; o programa traz esse ponto (e a câmera) para dentro e a vista muda')
     for i, p in enumerate(d.get('passagens', [])):
         if isinstance(p.get('x'), (int, float)) and isinstance(p.get('y'), (int, float)) and not andavel(p['x'], p['y']): avisos.append(f'passagem {i + 1} ({p.get("nome", "")}): fica a mais de 2 m fora da imagem, onde ninguém chega')
-    if d.get('grades') and len(d['grades']) >= 4: avisos.append('há várias grades: confira se a área que elas cercam tem uma abertura (grade não abre)')
+    # Área cercada por grade (com ou sem paredes) sem entrada: ninguém chega lá, e grade não abre.
+    grades = [g for g in d.get('grades', []) if isinstance(g, list) and len(g) == 4 and all(isinstance(v, (int, float)) for v in g)]
+    if grades:
+        bloqueios = [(p, (e / 2) / E) for p, e in zip(paredes, esps)] + [(b, 0) for b in d.get('barreiras', []) if isinstance(b, list) and len(b) == 4 and all(isinstance(v, (int, float)) for v in b)]
+        inicio = d['chegada']['de'] if isinstance(d.get('chegada'), dict) and ponto(d['chegada'].get('de')) else None
+        for x, y, area in areas_presas(W, H, E, bloqueios, grades, inicio):
+            avisos.append(f'a área cercada perto de x {x:.0f}, y {y:.0f} (uns {area:.0f} m²) não tem entrada: grade não abre. Deixe uma abertura de 0,8 m ou mais na grade (ou uma porta, se o lado fechado for parede); se for de propósito (uma cela, um cercado de bicho), ignore')
     # O programa lê os exemplos (indice.json) e os mapas da pessoa (indice_local.json).
     listados = []
     for nome_indice in ('indice.json', 'indice_local.json'):

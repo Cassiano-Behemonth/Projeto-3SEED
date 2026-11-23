@@ -275,7 +275,7 @@ Sair limpa da IA de imagem é sempre melhor que limpar depois.
 
 Abra a pasta do projeto num assistente de IA que roda comandos no terminal (Claude Code, Codex, Gemini CLI, Cursor, Copilot ou outro). As instruções ficam em `AGENTS.md`, que a maioria lê sozinha; `CLAUDE.md` e `GEMINI.md` só apontam para ele. Se o seu assistente não ler nenhum desses, comece com "leia o AGENTS.md".
 
-Logo depois de clonar, não há nada a instalar: peça "rode `python3 ferramentas/testar.py --rapido`" para conferir que as ferramentas funcionam nesse computador (uns 10 segundos). Depois, coloque as imagens nas pastas da tabela da seção 1 e peça o mapa. A IA segue `AGENTS.md`, usa as ferramentas e entrega uma primeira versão com uma lista do que é chute. Ela recusa ilustrações vistas de dentro (com teto, horizonte ou ponto de fuga), porque não servem de piso.
+Logo depois de clonar, não há nada a instalar: peça "rode `python3 ferramentas/testar.py --rapido`" para conferir que as ferramentas funcionam nesse computador (menos de meio minuto). Depois, coloque as imagens nas pastas da tabela da seção 1 e peça o mapa. A IA segue `AGENTS.md`, usa as ferramentas e entrega uma primeira versão com uma lista do que é chute. Ela recusa ilustrações vistas de dentro (com teto, horizonte ou ponto de fuga), porque não servem de piso.
 
 Pedidos que também funcionam: "tira a quadrícula desta pintura", "recorta as poses desta folha de personagem e põe na campanha", "monta este carro em 3D a partir da folha", "afasta o lago da vila sem mudar a escala". O `AGENTS.md` tem uma tabela de qual ferramenta serve para cada um.
 
@@ -285,12 +285,12 @@ Abra o editor, envie a imagem, meça a escala com "Medir escala" e desenhe pared
 
 ### Ferramentas
 
-Todas em `ferramentas/`, só com o Python padrão (3.8 ou mais novo; com numpy e Pillow, ficam mais rápidas). Rode da raiz do repositório; cada uma explica o uso com `--help`. Num computador novo, `python3 ferramentas/testar.py --rapido` confere em uns 10 segundos que todas funcionam. As imagens de conferência que elas gravam vão bem em `rascunho/`, uma pasta que fica fora do git.
+Todas em `ferramentas/`, só com o Python padrão (3.8 ou mais novo; com numpy e Pillow, ficam mais rápidas). Rode da raiz do repositório; cada uma explica o uso com `--help`. Num computador novo, `python3 ferramentas/testar.py --rapido` confere em menos de meio minuto que todas funcionam. As imagens de conferência que elas gravam vão bem em `rascunho/`, uma pasta que fica fora do git.
 
 | Etapa | Ferramenta | Para que serve |
 |---|---|---|
-| Ler a imagem | `grade.py` | Grade numerada sobre a imagem, para ler as posições; informa a cor da borda |
-| Ler a imagem | `comparar.py` | Confere se dia e noite têm o mesmo enquadramento |
+| Ler a imagem | `grade.py` | Grade numerada sobre a imagem, para ler as posições; informa a cor da borda; `--cor X Y` dá a cor de um ponto |
+| Ler a imagem | `comparar.py` | Confere se dia e noite têm o mesmo enquadramento: mede o deslocamento em cada região e diz se batem |
 | Preparar a imagem | `quadricula.py` | Tira a grade de mapa de batalha da pintura (`--maximo 150` para grade escura) |
 | Preparar a imagem | `endireitar.py` | Endireita planta em perspectiva e corrige vista oblíqua |
 | Preparar a imagem | `apagar.py` | Remenda a pintura: apaga com o piso vizinho, cobre com um "print" de outro trecho, cola pedaços, tira do chão a pintura dos prédios |
@@ -299,9 +299,9 @@ Todas em `ferramentas/`, só com o Python padrão (3.8 ou mais novo; com numpy e
 | Montar as peças | `folha.py` | Acha as vistas de uma folha de prédio, em uma ou duas fileiras, e diz qual é qual; avisa quando as medidas não combinam; `--pecas` para folhas modulares (tira as etiquetas de número); limpa folhas sujas (`--limpar`, `--nevoa`, `--papel`); `--alinhar` põe o telhado em cima de cada vista para conferir lateral espelhada e chaminé fora do lugar |
 | Montar as peças | `espalhar.py` | Espalha mata onde o chão é verde e leva postes para a calçada, sem tampar câmeras |
 | Montar as peças | `relevo.py` | Ergue em blocos o que tem certa cor (sebes de labirinto, muretas, canteiros) |
-| Conferir | `validar.py` | Aponta erros e avisos do arquivo do mapa: campos com valor errado, imagens que faltam, peças, câmeras e chegada fora da área em que se anda, desafios incompletos, criaturas que não existem. `--tudo` confere todos os mapas e as listas (arquivo listado que não existe, `id` repetido, mapa fora das listas) |
+| Conferir | `validar.py` | Aponta erros e avisos do arquivo do mapa: campos com valor errado, imagens que faltam, peças, câmeras e chegada fora da área em que se anda, desafios incompletos, criaturas que não existem, área cercada por grade sem entrada. `--tudo` confere todos os mapas e as listas (arquivo listado que não existe, `id` repetido, mapa fora das listas) |
 | Conferir | `previa.py` | Desenha o mapa por cima da imagem, em 2D |
-| Conferir | `foto.py` | Tira fotos do mapa em 3D sem abrir janela (precisa do Chrome ou do Edge); `--espera 600` para mapas enormes, `--porta` se a 5173 estiver ocupada |
+| Conferir | `foto.py` | Tira fotos do mapa em 3D sem abrir janela (precisa do Chrome ou do Edge); com várias vistas, o nome de cada foto diz a câmera (`f_cam1.png`); `--espera 600` para mapas enormes, `--porta` se a 5173 estiver ocupada |
 | Criaturas e objetos | `figuras.py` | Recorta as poses de uma folha de personagem ou criatura, uma PNG por pose com fundo transparente, e imprime o trecho para a campanha (seção 6) |
 | Criaturas e objetos | `objeto.py` | Monta o atlas de um objeto 3D (carro, armadilha) a partir de uma folha de quatro vistas e imprime o trecho `volume` (seção 6) |
 | Criaturas e objetos | `validar_campanha.py` | Confere a campanha (`src/campanha.js`): imagens e vídeos que faltam, medidas que não batem, poses que não existem, campos com nome errado (o mesmo que abrir `conferir.html`) |
@@ -328,7 +328,7 @@ O que muda de um tipo para outro é a imagem, o preparo e os campos principais. 
 
 #### Interior visto reto de cima (casa, escola, bunker, um andar)
 
-- **Imagem:** a planta reta de cima, com o piso e o topo das paredes ("Interior", na seção 2). A versão de noite tem de ter o mesmo enquadramento: confira com `comparar.py`.
+- **Imagem:** a planta reta de cima, com o piso e o topo das paredes ("Interior", na seção 2). A versão de noite tem de ter o mesmo enquadramento: `comparar.py` mede e diz se as duas batem.
 - **Escala:** pelos móveis e portas (porta ≈ 0,9 m, cadeira ≈ 0,45 m, cama de solteiro ≈ 2 m).
 - **No arquivo:**
   - **Paredes e portas:** `paredes` com vãos de 0,8 m ou mais e `portas` nos vãos.
@@ -337,6 +337,8 @@ O que muda de um tipo para outro é a imagem, o preparo e os campos principais. 
   - **Luzes:** uma por cômodo.
   - **Câmeras, chegada e passagens:** `cameras`, `chegada` e `passagens` para os outros andares.
 - **Jardim ou quintal em volta:** sem `moldura`; o `teto` cobre só o prédio, e a vegetação e as luzes ficam do lado de fora (guia: "O lado de fora do prédio").
+- **Prédio com pátio ou quadra grande** (escola, quartel): se a parte a céu aberto é um terço da planta ou mais, use `ceuAberto`, sem `teto`.
+- **Cômodo sem porta desenhada:** abra um vão de 1 m na parede que dá para o corredor ou o pátio, e anote como chute.
 
 #### Interior com a face das paredes aparecendo
 

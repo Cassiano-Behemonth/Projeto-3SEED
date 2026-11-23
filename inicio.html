@@ -123,7 +123,7 @@
     <h2>Como criar um mapa</h2>
     <p>Há três caminhos. Em todos, o ponto de partida é a imagem: <strong>a qualidade do mapa depende mais das imagens do que de qualquer ferramenta.</strong></p>
     <div class="tres" style="margin-top: 18px">
-      <div class="cartao"><h3>Pedindo a uma IA</h3><p>Ponha a imagem em <code>assets/interiores/</code> e peça a um assistente de IA que roda comandos no terminal (Claude Code, Codex, Gemini CLI, Cursor ou outro) que crie o mapa. As instruções que ele segue estão em <code>AGENTS.md</code>: conferir a imagem, medir a escala, escrever o arquivo, validar e tirar fotos em 3D. Ele entrega uma primeira versão e diz o que foi chute. Logo depois de clonar, peça que rode <code>python3 ferramentas/testar.py --rapido</code>: confere em uns 10 segundos que as ferramentas funcionam nesse computador.</p></div>
+      <div class="cartao"><h3>Pedindo a uma IA</h3><p>Ponha a imagem em <code>assets/interiores/</code> e peça a um assistente de IA que roda comandos no terminal (Claude Code, Codex, Gemini CLI, Cursor ou outro) que crie o mapa. As instruções que ele segue estão em <code>AGENTS.md</code>: conferir a imagem, medir a escala, escrever o arquivo, validar e tirar fotos em 3D. Ele entrega uma primeira versão e diz o que foi chute. Logo depois de clonar, peça que rode <code>python3 ferramentas/testar.py --rapido</code>: confere em menos de meio minuto que as ferramentas funcionam nesse computador.</p></div>
       <div class="cartao"><h3>No editor</h3><p>Abra o <a href="editor.html">editor</a>, envie a imagem, meça a escala com "Medir escala" e desenhe paredes, portas, salas ocultas, móveis, luzes, câmeras, a chegada e as passagens. "Salvar" grava em <code>mapas/</code>; "Ver em 3D" abre o resultado.</p></div>
       <div class="cartao"><h3>Escrevendo o arquivo</h3><p>Um mapa é um JSON simples. O formato inteiro, campo por campo, está em <code>GUIA_DE_MAPAS.md</code>. Um mapa escrito à mão abre no editor para ajustes, e vice-versa.</p></div>
     </div>
@@ -162,7 +162,7 @@
     <p>O passo a passo acima vale para todos. O que muda de um tipo para outro é o preparo da imagem e os campos principais; o <code>README.md</code> ("Cada tipo de mapa") e o <code>GUIA_DE_MAPAS.md</code> trazem os detalhes.</p>
     <table>
       <tr><th>Tipo</th><th>Preparo</th><th>No arquivo</th></tr>
-      <tr><td><strong>Interior reto de cima</strong><br>casa, escola, bunker, um andar</td><td><code>comparar.py</code> se houver versão de noite</td><td><code>paredes</code> com vãos, <code>portas</code>, <code>salas</code> ocultas, móveis grandes, uma luz por cômodo</td></tr>
+      <tr><td><strong>Interior reto de cima</strong><br>casa, escola, bunker, um andar</td><td><code>comparar.py</code> se houver versão de noite (ele mede e diz se batem)</td><td><code>paredes</code> com vãos, <code>portas</code>, <code>salas</code> ocultas, móveis grandes, uma luz por cômodo</td></tr>
       <tr><td><strong>Interior com a face das paredes</strong><br>parede como faixa larga, com quadros</td><td>—</td><td>Cada parede pela <code>faixa</code> que ocupa; quadros e lousas como <code>caixa</code> fina</td></tr>
       <tr><td><strong>Planta em perspectiva</strong><br>prédio em trapézio</td><td><code>endireitar.py</code> com os quatro cantos do piso</td><td>Como "face das paredes"</td></tr>
       <tr><td><strong>Cena ao ar livre</strong><br>navio, cais, clareira, praia</td><td><code>apagar.py</code> nas velas e sombras pintadas</td><td><code>ceuAberto</code>, <code>corEntorno</code>, <code>agua</code>; navio e cais em <code>plataformas</code> (exemplo: <code>navio_pirata</code>)</td></tr>
@@ -184,7 +184,7 @@
       <tr><td>Lateral espelhada, chaminé fora do lugar</td><td>Na folha, a varanda ou a chaminé fica de um lado numa vista e do outro em outra</td><td><code>folha.py --alinhar</code> mostra; <code>folha.py --limpar ... --espelhar</code> desvira</td></tr>
       <tr><td>Folha em pergaminho</td><td>Moldura, manchas e rótulos em volta das vistas</td><td><code>folha.py --limpar ... --papel</code></td></tr>
       <tr><td>Fundo sujo na folha</td><td>Pedaços da referência ou névoa em volta do prédio</td><td><code>folha.py --limpar ... --nevoa 6</code></td></tr>
-      <tr><td>Dia e noite desalinhados</td><td>As linhas não continuam de uma faixa para a outra</td><td>Confira com <code>comparar.py</code>; se não baterem, use só o dia</td></tr>
+      <tr><td>Dia e noite desalinhados</td><td>As linhas não continuam de uma faixa para a outra</td><td><code>comparar.py</code> mede o deslocamento e diz se batem; se não baterem, use só o dia</td></tr>
       <tr><td>Algo pintado que atrapalha</td><td>Uma vela no convés, um rótulo, a rosa dos ventos</td><td><code>apagar.py</code> cobre com um pedaço vizinho do chão</td></tr>
     </table>
   </div></section>
@@ -194,10 +194,10 @@
     <p>Ficam em <code>ferramentas/</code>, usam só o Python padrão e explicam o uso com <code>--help</code>.</p>
     <table>
       <tr><th>Ferramenta</th><th>Para que serve</th></tr>
-      <tr><td><code>grade.py</code></td><td>Grade numerada sobre a imagem, para ler as posições</td></tr>
-      <tr><td><code>validar.py</code></td><td>Aponta erros e avisos do arquivo do mapa</td></tr>
+      <tr><td><code>grade.py</code></td><td>Grade numerada sobre a imagem, para ler as posições; <code>--cor X Y</code> dá a cor de um ponto</td></tr>
+      <tr><td><code>validar.py</code></td><td>Aponta erros e avisos do arquivo do mapa (inclusive área cercada por grade sem entrada)</td></tr>
       <tr><td><code>previa.py</code></td><td>Desenha o mapa por cima da imagem, em 2D</td></tr>
-      <tr><td><code>foto.py</code></td><td>Fotografa o mapa em 3D sem abrir janela (precisa do Google Chrome)</td></tr>
+      <tr><td><code>foto.py</code></td><td>Fotografa o mapa em 3D sem abrir janela (precisa do Chrome ou do Edge)</td></tr>
       <tr><td><code>endireitar.py</code></td><td>Endireita uma planta em perspectiva</td></tr>
       <tr><td><code>quadricula.py</code></td><td>Tira a grade de um mapa de batalha</td></tr>
       <tr><td><code>ampliar.py</code></td><td>Aumenta o chão em volta da pintura</td></tr>
@@ -205,7 +205,7 @@
       <tr><td><code>apagar.py</code></td><td>Remenda a pintura com pedaços dela mesma</td></tr>
       <tr><td><code>espalhar.py</code></td><td>Espalha árvores onde o chão é verde e postes na calçada</td></tr>
       <tr><td><code>relevo.py</code></td><td>Ergue em blocos o que tem certa cor (sebes, muretas)</td></tr>
-      <tr><td><code>comparar.py</code></td><td>Confere se dia e noite têm o mesmo enquadramento</td></tr>
+      <tr><td><code>comparar.py</code></td><td>Confere se dia e noite têm o mesmo enquadramento e mede o deslocamento</td></tr>
       <tr><td><code>compor.py</code></td><td>Espalha as partes de uma pintura num chão grande, ligadas por trilhas</td></tr>
       <tr><td><code>figuras.py</code></td><td>Recorta as poses de uma folha de personagem, com fundo transparente</td></tr>
       <tr><td><code>objeto.py</code></td><td>Monta o atlas de um objeto 3D (carro, armadilha) a partir de quatro vistas</td></tr>

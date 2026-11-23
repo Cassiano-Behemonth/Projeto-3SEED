@@ -26,7 +26,7 @@ import hashlib, json, os, random, shutil, struct, subprocess, sys, tempfile, tim
 
 AQUI = os.path.dirname(os.path.abspath(__file__)); RAIZ = os.path.dirname(AQUI)
 sys.path.insert(0, AQUI)
-from imagem import ler_png, escrever_png, np as _np, _PIL   # noqa: E402
+from imagem import ler_png, escrever_png, redimensionar, np as _np, _PIL   # noqa: E402
 
 FERRAMENTAS = ['grade', 'previa', 'validar', 'foto', 'endireitar', 'comparar', 'apagar', 'quadricula', 'ampliar', 'espalhar',
                'relevo', 'folha', 'figuras', 'objeto', 'compor', 'validar_campanha', 'testar']
@@ -324,8 +324,27 @@ def t_outras(pasta):
     # grade, comparar, relevo
     g = os.path.join(pasta, 'grade.png'); r = rodar('grade', pint, g, '--recorte', 50, 50, 100, 80, '--zoom', 2)
     conferir(r.returncode == 0 and os.path.exists(g), 'grade.py grava o recorte ampliado', '', r.stderr[-200:])
+    r = rodar('grade', pint, '--cor', 150, 100, '--cor', 120, 70)
+    conferir(r.returncode == 0 and '#0a0ac8' in r.stdout and '#c81e1e' in r.stdout, 'grade.py --cor lê a cor dos pontos', '', r.stdout[-200:] + r.stderr[-200:])
     c = os.path.join(pasta, 'comparado.png'); r = rodar('comparar', pint, ap, c)
     conferir(r.returncode == 0 and os.path.exists(c), 'comparar.py grava as faixas', '', r.stderr[-200:])
+    # comparar mede o alinhamento: a "noite" escura e menor bate; a que tem metade do desenho deslocada, não
+    sorteio = random.Random(5); pecas = [(sorteio.randrange(0, 580), sorteio.randrange(0, 380), sorteio.randrange(10, 50), sorteio.randrange(8, 36),
+                                          tuple(sorteio.randrange(40, 230) for _ in range(3))) for _ in range(110)]
+    def cena(desloc, escuro):
+        d = Desenho(600, 400, (120, 110, 90))
+        for x, y, w, h, cor in pecas: d.ret(x + (desloc if x < 300 else 0), y, x + w + (desloc if x < 300 else 0), y + h, cor)
+        if escuro: d.pix = bytearray(int(v * f) for i, v in enumerate(d.pix) for f in ((0.35, 0.4, 0.6)[i % 3],))
+        return d
+    dia = os.path.join(pasta, 'cena_dia.png'); cena(0, False).gravar(dia)
+    for nome, desloc, esperado in (('a de noite, mais escura e menor, bate', 0, 'batem'), ('a de noite com metade do desenho 14 px para o lado não bate', 14, 'NÃO batem')):
+        d = cena(desloc, True); noite = os.path.join(pasta, f'cena_noite_{desloc}.png')
+        if not desloc:
+            rgb, _ = redimensionar(600, d.pix, None, (0, 0, 600, 400), 480, 320); escrever_png(noite, 480, 320, rgb)
+        else: d.gravar(noite)
+        r = rodar('comparar', dia, noite, os.path.join(pasta, 'cena_c.png'))
+        ultima = (r.stdout.strip().splitlines() or [''])[-1]
+        conferir(r.returncode == 0 and esperado in ultima and not (esperado == 'batem' and 'NÃO' in ultima), f'comparar.py: {nome}', ultima[:90], ultima[:200] or r.stderr[-200:])
     rv = os.path.join(pasta, 'relevo.json'); r = rodar('relevo', pint, rv, '--area', 0, 0, 300, 200, '--escuro', 60, '--altura', 2)
     try: blocos = json.load(open(rv, encoding='utf-8'))
     except Exception: blocos = None
@@ -352,6 +371,14 @@ def t_mapas(pasta, todos):
                  'nenhuma peça tem "desafio"', '"textura.imagem" não encontrada', '"alturaFolha" é a altura']
     faltam = [e for e in esperados if e not in s]
     conferir(r.returncode == 1 and not faltam, 'validar.py pega os erros de um mapa quebrado', f'{len(esperados)} erros plantados', 'não pegou: ' + ' | '.join(faltam))
+    # cercado de grade: fechado (ou com fresta de 0,3 m) avisa; com vão de 1 m, não
+    d = json.load(open(navio, encoding='utf-8')); E = d['escala']; x0, y0, x1, y1 = 40, 40, 40 + round(6 / E), 40 + round(6 / E)
+    for nome, vao, avisa in (('fechado', 0, True), ('com fresta de 0,3 m', 0.3, True), ('com vão de 1 m', 1.0, False)):
+        meio = (y0 + y1) / 2; v = vao / E / 2
+        d['grades'] = [[x0, y0, x1, y0], [x1, y0, x1, y1], [x1, y1, x0, y1], [x0, y1, x0, meio + v]] + ([[x0, meio - v, x0, y0]] if vao else [[x0, meio, x0, y0]])
+        d['id'] = 'teste_cercado'; q = os.path.join(pasta, 'teste_cercado.json'); json.dump(d, open(q, 'w', encoding='utf-8'))
+        r = rodar('validar', q); tem = 'área cercada perto de' in r.stdout
+        conferir(tem == avisa, f'validar.py: cercado de grade {nome} ' + ('avisa' if avisa else 'não avisa'), '', r.stdout[-300:])
     r = rodar('validar', '--tudo')
     listas = r.stdout.split('\n')[0]
     conferir('sem problemas' in listas or ('erros' in listas and ' 0 erros' in listas), 'validar.py --tudo: as listas de mapas estão certas', '', r.stdout[:400])

@@ -12,9 +12,12 @@ Uso:
   python3 ferramentas/grade.py planta.png saida.png --recorte 0 0 500 400 --recorte 500 0 500 400 --zoom 2
       (vários recortes de uma vez: grava saida_1.png, saida_2.png... lendo a imagem uma vez só)
   python3 ferramentas/grade.py planta.png saida.png --clarear 2.5     # para plantas escuras
+  python3 ferramentas/grade.py planta.png --cor 700 400 --cor 120 900   # só a cor desses pontos (sem gravar imagem)
 
 Os números na grade são sempre pixels da imagem ORIGINAL, mesmo com recorte e zoom.
-Só usa a biblioteca padrão do Python. Aceita PNG de 8 bits (cinza, RGB, com ou sem transparência), sem entrelaçamento.
+--cor X Y (pode repetir) imprime a cor do ponto em hexadecimal, a mediana de 5 x 5 px em volta dele: serve para
+"corEntorno", "agua", a cor de uma parede ou de um móvel, e para saber se um ponto é calçada, asfalto, grama ou água.
+Só usa a biblioteca padrão do Python e lê qualquer PNG.
 """
 import os, sys
 from imagem import Tela, ler_png, escrever_png
@@ -87,9 +90,17 @@ def desenhar_grade(t, x0, y0, rw, rh, zoom, passo):
 def main():
     a = sys.argv[1:]
     if a and a[0] in ('-h', '--help'): print(__doc__); sys.exit(0)
-    if len(a) < 2: sys.exit(__doc__)
+    cores = opcoes(a, '--cor', 2); sem_saida = len(a) < 2 or a[1].startswith('--')
+    if len(a) < 1 or (sem_saida and not cores): sys.exit(__doc__)
     passo = int(opcao(a, '--passo', 1, [100])[0]); zoom = zoom_inteiro(a); clarear = opcao(a, '--clarear', 1, [1.0])[0]
     W, H, rgb = ler_png(a[0])
+    for x, y in cores:
+        x, y = int(x), int(y)
+        if not (0 <= x < W and 0 <= y < H): print(f'x {x}, y {y}: fora da imagem ({W} x {H} px)'); continue
+        viz = [(xx, yy) for yy in range(max(0, y - 2), min(H, y + 3)) for xx in range(max(0, x - 2), min(W, x + 3))]
+        c = [sorted(rgb[(yy * W + xx) * 3 + k] for xx, yy in viz)[len(viz) // 2] for k in range(3)]
+        print(f'x {x}, y {y}: #{c[0]:02x}{c[1]:02x}{c[2]:02x}  ({c[0]}, {c[1]}, {c[2]})')
+    if sem_saida: return
     recortes = opcoes(a, '--recorte', 4) or [[0, 0, W, H]]
     raiz, ext = os.path.splitext(a[1])
     if len(recortes) == 1 and recortes[0][:2] == [0, 0]: print('Cor mediana da borda da imagem (serve para "corEntorno"): ' + cor_da_borda(W, H, rgb))
