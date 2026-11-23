@@ -18,14 +18,34 @@ import socket
 import sys
 from urllib.parse import parse_qs, urlparse
 
-PORTA_ESCOLHIDA = int(sys.argv[1]) if len(sys.argv) > 1 else None
 RAIZ = os.path.dirname(os.path.abspath(__file__))
 ID_VALIDO = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 IMAGEM_VALIDA = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,80}\.(png|jpg|jpeg|webp)$")
 LIMITE = 40 * 1024 * 1024
 
+# Tipos fixos: o Python pergunta ao sistema o tipo de cada arquivo, e no Windows o registro às vezes diz que .js é
+# "text/plain" (comum depois de instalar o Visual Studio). Aí o navegador se recusa a rodar o programa e a página fica
+# em branco. Com esta lista, a resposta é sempre a mesma, em qualquer computador.
+TIPOS = {
+    ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8", ".md": "text/plain; charset=utf-8",
+    ".txt": "text/plain; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif", ".ico": "image/x-icon", ".webm": "video/webm",
+    ".mp4": "video/mp4", ".mp3": "audio/mpeg", ".ogg": "audio/ogg", ".wav": "audio/wav", ".m4a": "audio/mp4",
+    ".glb": "model/gltf-binary", ".gltf": "model/gltf+json", ".wasm": "application/wasm",
+}
+
+# A saída sai em UTF-8 (com acentos) mesmo quando vai para outro programa, como um assistente de IA no terminal.
+if not os.environ.get("PYTHONIOENCODING"):
+    for _f in (sys.stdout, sys.stderr):
+        try: _f.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError): pass
+
 
 class Servidor(http.server.SimpleHTTPRequestHandler):
+    def guess_type(self, path):
+        return TIPOS.get(os.path.splitext(str(path))[1].lower()) or super().guess_type(path)
+
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")
         super().end_headers()
@@ -112,6 +132,9 @@ def abrir(porta):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"): print(__doc__); sys.exit(0)
+    if len(sys.argv) > 1 and not sys.argv[1].isdigit(): sys.exit(f"Porta inválida: {sys.argv[1]}. Use um número: python3 servidor.py 8080")
+    PORTA_ESCOLHIDA = int(sys.argv[1]) if len(sys.argv) > 1 else None
     os.chdir(RAIZ)
     if PORTA_ESCOLHIDA is not None:
         srv = abrir(PORTA_ESCOLHIDA)

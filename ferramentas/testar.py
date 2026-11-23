@@ -9,6 +9,9 @@ Uso:
 
 O que testa:
   - todas as ferramentas compilam e respondem a --help;
+  - o que costuma quebrar em outro computador: a saída tem de sair em UTF-8 com o sistema em outra codificação (como no
+    Windows), as ferramentas têm de rodar de outra pasta, e o servidor tem de mandar os .js como JavaScript mesmo quando
+    o registro do Windows diz que são texto;
   - a leitura de PNG (cor, cinza, paleta, 1 a 16 bits, transparência, entrelaçado), com e sem Pillow;
   - cada ferramenta numa imagem de teste desenhada aqui mesmo (sem arte de ninguém), conferindo o resultado:
     folha.py acha as quatro vistas, figuras.py recorta as figuras com fundo transparente, objeto.py tira a linha de chão
@@ -45,7 +48,7 @@ def conferir(cond, nome, detalhe_ok='', detalhe_falha=''):
 
 def rodar(ferr, *args, env=None, timeout=600):
     return subprocess.run([sys.executable, os.path.join(AQUI, ferr + '.py')] + [str(a) for a in args], cwd=RAIZ,
-                          capture_output=True, text=True, env={**os.environ, **(env or {})}, timeout=timeout)
+                          capture_output=True, text=True, encoding='utf-8', errors='replace', env={**os.environ, **(env or {})}, timeout=timeout)
 
 
 def md5(arq): return hashlib.md5(open(arq, 'rb').read()).hexdigest()
@@ -198,14 +201,35 @@ def t_compilar():
     conferir(not sem, 'todas respondem a --help', f'{len(FERRAMENTAS)} ferramentas', 'sem ajuda: ' + ', '.join(sem))
 
 
+def t_ambiente(pasta):
+    """O que costuma quebrar fora deste computador: outra codificação do sistema, outra pasta, o registro do Windows."""
+    mapa = os.path.join(RAIZ, 'mapas', json.load(open(os.path.join(RAIZ, 'mapas', 'indice.json'), encoding='utf-8'))['mapas'][0])
+    # No Windows, a saída redirecionada (para um arquivo ou para um assistente de IA) usa a codificação antiga do sistema;
+    # aqui ela é simulada com LC_ALL. Roda também de outra pasta, com o caminho completo do mapa.
+    env = {k: v for k, v in os.environ.items() if k not in ('PYTHONIOENCODING', 'PYTHONUTF8', 'LANG', 'LC_CTYPE')}
+    env['LC_ALL'] = 'en_US.ISO8859-1'
+    r = subprocess.run([sys.executable, os.path.join(AQUI, 'validar.py'), mapa], cwd=pasta, capture_output=True, env=env, timeout=120)
+    conferir(r.returncode == 0 and 'móveis'.encode('utf-8') in r.stdout, 'validar.py roda de outra pasta e a saída sai em UTF-8 com o sistema em outra codificação',
+             '', (r.stdout + r.stderr)[-200:].decode('utf-8', 'replace'))
+    r = subprocess.run([sys.executable, os.path.join(RAIZ, 'servidor.py'), '--help'], capture_output=True, timeout=30)
+    conferir(r.returncode == 0 and b'127.0.0.1' in r.stdout, 'servidor.py responde a --help', '', r.stderr[-200:].decode('utf-8', 'replace'))
+    codigo = (f'import sys, mimetypes; sys.path.insert(0, {RAIZ!r}); mimetypes.init(); mimetypes.add_type("text/plain", ".js"); '
+              'mimetypes.add_type("text/plain", ".json"); import servidor; h = object.__new__(servidor.Servidor); '
+              'print(h.guess_type("src/main.js"), h.guess_type("mapas/indice.json"), sep="|")')
+    r = subprocess.run([sys.executable, '-c', codigo], capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=30)
+    tipos = r.stdout.strip().split('|')
+    conferir(len(tipos) == 2 and tipos[0].startswith('text/javascript') and tipos[1].startswith('application/json'),
+             'o servidor manda .js como JavaScript mesmo com o registro do Windows errado', '', (r.stdout + r.stderr)[-200:])
+
+
 def t_png(pasta):
     for modo, env in (('com Pillow', {}), ('Python puro', PURO)) if _PIL else (('Python puro', PURO),):
-        r = subprocess.run([sys.executable, __file__, '--interno-png', pasta], capture_output=True, text=True, env={**os.environ, **env}, timeout=300)
+        r = subprocess.run([sys.executable, __file__, '--interno-png', pasta], capture_output=True, text=True, encoding='utf-8', errors='replace', env={**os.environ, **env}, timeout=300)
         try: res = json.loads(r.stdout.strip().splitlines()[-1])
         except Exception: falha(f'leitura de PNG ({modo})', r.stderr[-300:] or 'sem resultado'); continue
         conferir(not res['erros'], f'leitura de PNG, todos os tipos ({modo})', f'{res["casos"]} arquivos', '; '.join(res['erros']))
     arq = os.path.join(pasta, 'falso.png'); open(arq, 'wb').write(b'\xff\xd8\xff\xe0' + b'0' * 100)
-    r = subprocess.run([sys.executable, '-c', f'import sys; sys.path.insert(0, {AQUI!r}); from imagem import ler_png; ler_png({arq!r})'], capture_output=True, text=True)
+    r = subprocess.run([sys.executable, '-c', f'import sys; sys.path.insert(0, {AQUI!r}); from imagem import ler_png; ler_png({arq!r})'], capture_output=True, text=True, encoding='utf-8', errors='replace')
     conferir(r.returncode != 0 and 'JPEG' in (r.stderr + r.stdout), 'JPEG com extensão .png é recusado com explicação', '', r.stderr[-200:])
 
 
@@ -303,7 +327,7 @@ def t_outras(pasta):
     c = os.path.join(pasta, 'comparado.png'); r = rodar('comparar', pint, ap, c)
     conferir(r.returncode == 0 and os.path.exists(c), 'comparar.py grava as faixas', '', r.stderr[-200:])
     rv = os.path.join(pasta, 'relevo.json'); r = rodar('relevo', pint, rv, '--area', 0, 0, 300, 200, '--escuro', 60, '--altura', 2)
-    try: blocos = json.load(open(rv))
+    try: blocos = json.load(open(rv, encoding='utf-8'))
     except Exception: blocos = None
     conferir(r.returncode == 0 and isinstance(blocos, list) and len(blocos) > 0, 'relevo.py ergue o que tem a cor pedida', f'{len(blocos or [])} blocos', r.stderr[-200:] or str(blocos)[:100])
 
@@ -317,7 +341,7 @@ def t_mapas(pasta, todos):
     r = rodar('previa', navio, os.path.join(pasta, 'previa.png'), '--contorno')
     conferir(r.returncode == 0 and os.path.exists(os.path.join(pasta, 'previa.png')), 'previa.py desenha um exemplo', '', r.stderr[-200:])
     r = rodar('espalhar', navio, os.path.join(pasta, 'mata.json'), '--mata', '--passo', 40)
-    conferir(r.returncode == 0 and isinstance(json.load(open(os.path.join(pasta, 'mata.json'))), (list, dict)), 'espalhar.py roda num exemplo', '', r.stderr[-200:])
+    conferir(r.returncode == 0 and isinstance(json.load(open(os.path.join(pasta, 'mata.json'), encoding='utf-8')), (list, dict)), 'espalhar.py roda num exemplo', '', r.stderr[-200:])
     # um mapa com erros de propósito: o validador tem de pegar cada um
     d = json.load(open(navio, encoding='utf-8'))
     d.update({'id': 'teste_quebrado', 'imagem': 'assets/nao_existe.png', 'hora': 'meio-dia', 'luar': 3, 'chegada': {'de': [-9000, 0], 'para': [0, 0]}, 'criaturas': 'lobo',
@@ -363,7 +387,7 @@ def t_navegador(todos, rapido):
             elif l.startswith('FALHA'): falha(l[5:].split(' — ')[0].strip(), l.split(' — ', 1)[1] if ' — ' in l else '')
         if 'FIM' not in texto: falha('página de testes no navegador', 'parou antes do fim')
     out = os.path.join(tempfile.gettempdir(), '3seed_teste_foto.png')
-    r = rodar('foto', 'mapas/' + json.load(open(os.path.join(RAIZ, 'mapas', 'indice.json')))['mapas'][0], out, '--camera', 1, timeout=400)
+    r = rodar('foto', 'mapas/' + json.load(open(os.path.join(RAIZ, 'mapas', 'indice.json'), encoding='utf-8'))['mapas'][0], out, '--camera', 1, timeout=400)
     if r.returncode or not os.path.exists(out): falha('foto.py tira a foto 3D', r.stdout[-200:] + r.stderr[-200:]); return
     w, h, rgb = ler_png(out); amostra = rgb[::997]; media = sum(amostra) / len(amostra); var = sum((v - media) ** 2 for v in amostra) / len(amostra)
     conferir(var > 200, 'foto.py tira a foto 3D (e ela não sai vazia)', f'{w}x{h}', f'a foto parece vazia (variação {var:.0f})')
@@ -378,7 +402,7 @@ def main():
     pasta = tempfile.mkdtemp(prefix='3seed-teste-'); t0 = time.time()
     print(f'Testando (imagens de teste em {pasta}); numpy: {"sim" if _np else "não"}, Pillow: {"sim" if _PIL else "não"}')
     try:
-        print('Ferramentas:'); t_compilar(); t_png(pasta)
+        print('Ferramentas:'); t_compilar(); t_ambiente(pasta); t_png(pasta)
         print('Imagens de teste:'); folha = t_folha(pasta); figs = t_figuras(pasta); obj = t_objeto(pasta); t_outras(pasta); t_equivalencia(pasta, folha, figs, obj)
         print('Mapas:'); t_mapas(pasta, todos)
         print('Navegador:'); t_navegador(todos, rapido)

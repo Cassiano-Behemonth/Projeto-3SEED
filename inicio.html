@@ -71,7 +71,7 @@
 
   <nav class="indice"><div class="faixa">
     <a href="#o-que-e">O que é</a><a href="#mesa">Na mesa</a><a href="#controles">Controles</a><a href="#criar">Criar um mapa</a>
-    <a href="#imagens">As imagens</a><a href="#passos">Passo a passo</a><a href="#problemas">Problemas comuns</a><a href="#ferramentas">Ferramentas</a><a href="#ler">Para ler</a>
+    <a href="#imagens">As imagens</a><a href="#passos">Passo a passo</a><a href="#tipos">Cada tipo de mapa</a><a href="#problemas">Problemas comuns</a><a href="#ferramentas">Ferramentas</a><a href="#ler">Para ler</a>
   </div></nav>
 
   <section id="o-que-e"><div class="faixa">
@@ -123,7 +123,7 @@
     <h2>Como criar um mapa</h2>
     <p>Há três caminhos. Em todos, o ponto de partida é a imagem: <strong>a qualidade do mapa depende mais das imagens do que de qualquer ferramenta.</strong></p>
     <div class="tres" style="margin-top: 18px">
-      <div class="cartao"><h3>Pedindo a uma IA</h3><p>Ponha a imagem em <code>assets/interiores/</code> e peça a um assistente de código (como o Claude Code) que crie o mapa. As instruções que ele segue estão em <code>AGENTS.md</code>: conferir a imagem, medir a escala, escrever o arquivo, validar e tirar fotos em 3D. Ele entrega uma primeira versão e diz o que foi chute.</p></div>
+      <div class="cartao"><h3>Pedindo a uma IA</h3><p>Ponha a imagem em <code>assets/interiores/</code> e peça a um assistente de IA que roda comandos no terminal (Claude Code, Codex, Gemini CLI, Cursor ou outro) que crie o mapa. As instruções que ele segue estão em <code>AGENTS.md</code>: conferir a imagem, medir a escala, escrever o arquivo, validar e tirar fotos em 3D. Ele entrega uma primeira versão e diz o que foi chute. Logo depois de clonar, peça que rode <code>python3 ferramentas/testar.py --rapido</code>: confere em uns 10 segundos que as ferramentas funcionam nesse computador.</p></div>
       <div class="cartao"><h3>No editor</h3><p>Abra o <a href="editor.html">editor</a>, envie a imagem, meça a escala com "Medir escala" e desenhe paredes, portas, salas ocultas, móveis, luzes, câmeras, a chegada e as passagens. "Salvar" grava em <code>mapas/</code>; "Ver em 3D" abre o resultado.</p></div>
       <div class="cartao"><h3>Escrevendo o arquivo</h3><p>Um mapa é um JSON simples. O formato inteiro, campo por campo, está em <code>GUIA_DE_MAPAS.md</code>. Um mapa escrito à mão abre no editor para ajustes, e vice-versa.</p></div>
     </div>
@@ -155,6 +155,23 @@
       <li><strong>Passagens</strong> para outros mapas (a porta da frente, a escada), e o mapa na lista <code>mapas/indice_local.json</code> (o editor faz isso sozinho).</li>
       <li><strong>Valide e fotografe.</strong> <code>python3 ferramentas/validar.py mapas/meu_mapa.json</code> aponta os erros; <code>python3 ferramentas/foto.py mapas/meu_mapa.json rascunho/f.png --camera 1</code> mostra o mapa em 3D sem abrir janela. Repita até ficar bom.</li>
     </ol>
+  </div></section>
+
+  <section id="tipos"><div class="faixa">
+    <h2>Cada tipo de mapa</h2>
+    <p>O passo a passo acima vale para todos. O que muda de um tipo para outro é o preparo da imagem e os campos principais; o <code>README.md</code> ("Cada tipo de mapa") e o <code>GUIA_DE_MAPAS.md</code> trazem os detalhes.</p>
+    <table>
+      <tr><th>Tipo</th><th>Preparo</th><th>No arquivo</th></tr>
+      <tr><td><strong>Interior reto de cima</strong><br>casa, escola, bunker, um andar</td><td><code>comparar.py</code> se houver versão de noite</td><td><code>paredes</code> com vãos, <code>portas</code>, <code>salas</code> ocultas, móveis grandes, uma luz por cômodo</td></tr>
+      <tr><td><strong>Interior com a face das paredes</strong><br>parede como faixa larga, com quadros</td><td>—</td><td>Cada parede pela <code>faixa</code> que ocupa; quadros e lousas como <code>caixa</code> fina</td></tr>
+      <tr><td><strong>Planta em perspectiva</strong><br>prédio em trapézio</td><td><code>endireitar.py</code> com os quatro cantos do piso</td><td>Como "face das paredes"</td></tr>
+      <tr><td><strong>Cena ao ar livre</strong><br>navio, cais, clareira, praia</td><td><code>apagar.py</code> nas velas e sombras pintadas</td><td><code>ceuAberto</code>, <code>corEntorno</code>, <code>agua</code>; navio e cais em <code>plataformas</code> (exemplo: <code>navio_pirata</code>)</td></tr>
+      <tr><td><strong>Lugar inteiro, uma pintura só</strong><br>cidade, vila, base</td><td><code>apagar.py --predios</code>, <code>relevo.py</code>, <code>espalhar.py</code></td><td>Cada telhado em <code>predios</code>, muralhas em <code>faixa</code>, árvores e postes como peças (exemplos: <code>base_artica</code>, <code>cidade_feudal</code>)</td></tr>
+      <tr><td><strong>Cidade em camadas</strong><br>chão limpo, folhas, atlas</td><td><code>folha.py</code> e <code>folha.py --alinhar</code> em cada folha</td><td>Prédios importantes em <code>folhas</code>, casas pequenas em <code>predios</code> com as texturas do atlas</td></tr>
+      <tr><td><strong>Mapa de batalha</strong><br>com quadrícula</td><td><code>quadricula.py</code>; <code>apagar.py --ladrilhar</code> na rosa dos ventos</td><td>Como o tipo da cena; a casa da grade costuma valer 1,5 m</td></tr>
+      <tr><td><strong>Maior que a pintura</strong><br>perseguição, mata em volta</td><td><code>ampliar.py</code> ou <code>compor.py</code></td><td>A <code>escala</code> continua a mesma; só se anda até 2 m além da imagem</td></tr>
+      <tr><td><strong>Vários andares</strong></td><td>Um mapa por andar</td><td><code>passagens</code> de um para o outro e uma <code>chegada</code> em cada</td></tr>
+    </table>
   </div></section>
 
   <section id="problemas"><div class="faixa">

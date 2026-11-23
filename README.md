@@ -8,8 +8,10 @@ Um programa no navegador que transforma a imagem de uma planta, de um navio ou d
 
 - **Rodar:** `python3 servidor.py` e abrir `http://127.0.0.1:5173` (a página inicial explica tudo e tem os atalhos).
 - **Programa:** `http://127.0.0.1:5173/index.html` · **Editor:** `http://127.0.0.1:5173/editor.html`
+- **Ferramentas** (só Python, nada para instalar): [o que cada uma faz](#ferramentas)
+- **Como fazer cada tipo de mapa** (interior, navio, cidade, mapa de batalha): [passo a passo por tipo](#cada-tipo-de-mapa)
 - **Formato do mapa, campo por campo:** [`GUIA_DE_MAPAS.md`](GUIA_DE_MAPAS.md)
-- **Instruções para uma IA criar o mapa:** [`AGENTS.md`](AGENTS.md)
+- **Instruções para uma IA criar o mapa** (Claude Code, Codex, Gemini CLI, Cursor): [`AGENTS.md`](AGENTS.md)
 
 ---
 
@@ -271,7 +273,11 @@ Sair limpa da IA de imagem é sempre melhor que limpar depois.
 
 ### Pedindo a uma IA
 
-Coloque as imagens nas pastas da tabela da seção 1 e peça o mapa. A IA segue `AGENTS.md`, usa as ferramentas e entrega uma primeira versão com uma lista do que é chute. Ela recusa ilustrações vistas de dentro (com teto, horizonte ou ponto de fuga), porque não servem de piso.
+Abra a pasta do projeto num assistente de IA que roda comandos no terminal (Claude Code, Codex, Gemini CLI, Cursor, Copilot ou outro). As instruções ficam em `AGENTS.md`, que a maioria lê sozinha; `CLAUDE.md` e `GEMINI.md` só apontam para ele. Se o seu assistente não ler nenhum desses, comece com "leia o AGENTS.md".
+
+Logo depois de clonar, não há nada a instalar: peça "rode `python3 ferramentas/testar.py --rapido`" para conferir que as ferramentas funcionam nesse computador (uns 10 segundos). Depois, coloque as imagens nas pastas da tabela da seção 1 e peça o mapa. A IA segue `AGENTS.md`, usa as ferramentas e entrega uma primeira versão com uma lista do que é chute. Ela recusa ilustrações vistas de dentro (com teto, horizonte ou ponto de fuga), porque não servem de piso.
+
+Pedidos que também funcionam: "tira a quadrícula desta pintura", "recorta as poses desta folha de personagem e põe na campanha", "monta este carro em 3D a partir da folha", "afasta o lago da vila sem mudar a escala". O `AGENTS.md` tem uma tabela de qual ferramenta serve para cada um.
 
 ### À mão, no editor
 
@@ -279,29 +285,135 @@ Abra o editor, envie a imagem, meça a escala com "Medir escala" e desenhe pared
 
 ### Ferramentas
 
-Todas em `ferramentas/`, só com Python padrão (com numpy e Pillow, mais rápidas). Cada uma explica o uso com `--help`. As imagens de conferência que elas gravam vão bem em `rascunho/`, uma pasta que fica fora do git.
+Todas em `ferramentas/`, só com o Python padrão (3.8 ou mais novo; com numpy e Pillow, ficam mais rápidas). Rode da raiz do repositório; cada uma explica o uso com `--help`. Num computador novo, `python3 ferramentas/testar.py --rapido` confere em uns 10 segundos que todas funcionam. As imagens de conferência que elas gravam vão bem em `rascunho/`, uma pasta que fica fora do git.
 
-| Ferramenta | Para que serve |
-|---|---|
-| `grade.py` | Grade numerada sobre a imagem, para ler as posições; informa a cor da borda |
-| `folha.py` | Acha as vistas de uma folha de prédio, em uma ou duas fileiras, e diz qual é qual; avisa quando as medidas não combinam; `--pecas` para folhas modulares (tira as etiquetas de número); limpa folhas sujas (`--limpar`, `--nevoa`, `--papel`); `--alinhar` põe o telhado em cima de cada vista para conferir lateral espelhada e chaminé fora do lugar |
-| `compor.py` | Monta um chão grande com pedaços de uma pintura espalhados e ligados por trilhas (afastar as partes de um lugar sem mudar a escala) |
-| `figuras.py` | Recorta as poses de uma folha de personagem ou criatura, uma PNG por pose com fundo transparente, e imprime o trecho para a campanha (seção 6) |
-| `objeto.py` | Monta o atlas de um objeto 3D (carro, armadilha) a partir de uma folha de quatro vistas e imprime o trecho `volume` (seção 6) |
-| `espalhar.py` | Espalha mata onde o chão é verde e leva postes para a calçada, sem tampar câmeras |
-| `endireitar.py` | Endireita planta em perspectiva e corrige vista oblíqua |
-| `apagar.py` | Remenda a pintura: apaga com o piso vizinho, cobre com um "print" de outro trecho, cola pedaços, tira do chão a pintura dos prédios |
-| `relevo.py` | Ergue em blocos o que tem certa cor (sebes de labirinto, muretas, canteiros) |
-| `comparar.py` | Confere se dia e noite têm o mesmo enquadramento |
-| `quadricula.py` | Tira a grade de mapa de batalha da pintura (`--maximo 150` para grade escura) |
-| `ampliar.py` | Aumenta o chão em volta da pintura (mapa maior, mata em volta) |
-| `validar.py` | Aponta erros e avisos do arquivo do mapa: campos com valor errado, imagens que faltam, peças, câmeras e chegada fora da área em que se anda, desafios incompletos, criaturas que não existem. `--tudo` confere todos os mapas e as listas (arquivo listado que não existe, `id` repetido, mapa fora das listas) |
-| `validar_campanha.py` | Confere a campanha (`src/campanha.js`): imagens e vídeos que faltam, medidas que não batem, poses que não existem, campos com nome errado (o mesmo que abrir `conferir.html`) |
-| `testar.py` | Testa as ferramentas e o programa de ponta a ponta, em imagens de teste e no navegador. Rode antes de publicar uma mudança |
-| `previa.py` | Desenha o mapa por cima da imagem, em 2D |
-| `foto.py` | Tira fotos do mapa em 3D sem abrir janela (precisa do Chrome); `--espera 600` para mapas enormes, `--porta` se a 5173 estiver ocupada |
+| Etapa | Ferramenta | Para que serve |
+|---|---|---|
+| Ler a imagem | `grade.py` | Grade numerada sobre a imagem, para ler as posições; informa a cor da borda |
+| Ler a imagem | `comparar.py` | Confere se dia e noite têm o mesmo enquadramento |
+| Preparar a imagem | `quadricula.py` | Tira a grade de mapa de batalha da pintura (`--maximo 150` para grade escura) |
+| Preparar a imagem | `endireitar.py` | Endireita planta em perspectiva e corrige vista oblíqua |
+| Preparar a imagem | `apagar.py` | Remenda a pintura: apaga com o piso vizinho, cobre com um "print" de outro trecho, cola pedaços, tira do chão a pintura dos prédios |
+| Preparar a imagem | `ampliar.py` | Aumenta o chão em volta da pintura (mapa maior, mata em volta) |
+| Preparar a imagem | `compor.py` | Monta um chão grande com pedaços de uma pintura espalhados e ligados por trilhas (afastar as partes de um lugar sem mudar a escala) |
+| Montar as peças | `folha.py` | Acha as vistas de uma folha de prédio, em uma ou duas fileiras, e diz qual é qual; avisa quando as medidas não combinam; `--pecas` para folhas modulares (tira as etiquetas de número); limpa folhas sujas (`--limpar`, `--nevoa`, `--papel`); `--alinhar` põe o telhado em cima de cada vista para conferir lateral espelhada e chaminé fora do lugar |
+| Montar as peças | `espalhar.py` | Espalha mata onde o chão é verde e leva postes para a calçada, sem tampar câmeras |
+| Montar as peças | `relevo.py` | Ergue em blocos o que tem certa cor (sebes de labirinto, muretas, canteiros) |
+| Conferir | `validar.py` | Aponta erros e avisos do arquivo do mapa: campos com valor errado, imagens que faltam, peças, câmeras e chegada fora da área em que se anda, desafios incompletos, criaturas que não existem. `--tudo` confere todos os mapas e as listas (arquivo listado que não existe, `id` repetido, mapa fora das listas) |
+| Conferir | `previa.py` | Desenha o mapa por cima da imagem, em 2D |
+| Conferir | `foto.py` | Tira fotos do mapa em 3D sem abrir janela (precisa do Chrome ou do Edge); `--espera 600` para mapas enormes, `--porta` se a 5173 estiver ocupada |
+| Criaturas e objetos | `figuras.py` | Recorta as poses de uma folha de personagem ou criatura, uma PNG por pose com fundo transparente, e imprime o trecho para a campanha (seção 6) |
+| Criaturas e objetos | `objeto.py` | Monta o atlas de um objeto 3D (carro, armadilha) a partir de uma folha de quatro vistas e imprime o trecho `volume` (seção 6) |
+| Criaturas e objetos | `validar_campanha.py` | Confere a campanha (`src/campanha.js`): imagens e vídeos que faltam, medidas que não batem, poses que não existem, campos com nome errado (o mesmo que abrir `conferir.html`) |
+| Programa | `testar.py` | Testa as ferramentas e o programa de ponta a ponta, em imagens de teste e no navegador. Rode num computador novo e antes de publicar uma mudança |
 
-**A foto em 3D é a conferência que vale.** A prévia mostra se as peças estão no lugar; só a foto mostra se o mapa ficou bom. Tire a vista de planta e algumas do chão a cada mudança.
+### Cada tipo de mapa
+
+Todo mapa tem a mesma base:
+1. A imagem vai para `assets/interiores/`.
+2. A grade dá as posições e você mede a escala.
+3. O mapa é escrito em `mapas/<id>.json` (ou desenhado no editor) e o arquivo entra em `mapas/indice_local.json`.
+4. Você confere: o validador aponta os erros, a prévia mostra se as peças caíram no lugar, e a foto em 3D mostra se o mapa ficou bom.
+
+**A foto é a conferência que vale:** tire a vista de planta e algumas do chão a cada mudança.
+
+```
+python3 ferramentas/grade.py assets/interiores/<imagem>.png rascunho/g.png --passo 100
+python3 ferramentas/validar.py mapas/<id>.json
+python3 ferramentas/previa.py mapas/<id>.json rascunho/p.png --contorno
+python3 ferramentas/foto.py mapas/<id>.json rascunho/f.png --camera 0 --camera 1
+```
+
+O que muda de um tipo para outro é a imagem, o preparo e os campos principais. Os detalhes de cada campo estão no [`GUIA_DE_MAPAS.md`](GUIA_DE_MAPAS.md), na seção citada em cada tipo.
+
+#### Interior visto reto de cima (casa, escola, bunker, um andar)
+
+- **Imagem:** a planta reta de cima, com o piso e o topo das paredes ("Interior", na seção 2). A versão de noite tem de ter o mesmo enquadramento: confira com `comparar.py`.
+- **Escala:** pelos móveis e portas (porta ≈ 0,9 m, cadeira ≈ 0,45 m, cama de solteiro ≈ 2 m).
+- **No arquivo:**
+  - **Paredes e portas:** `paredes` com vãos de 0,8 m ou mais e `portas` nos vãos.
+  - **Salas ocultas:** `salas`, só onde a planta mostra a porta; na dúvida, deixe o vão aberto.
+  - **Móveis:** peças 3D sobre os móveis pintados com mais de uns 0,6 m.
+  - **Luzes:** uma por cômodo.
+  - **Câmeras, chegada e passagens:** `cameras`, `chegada` e `passagens` para os outros andares.
+- **Jardim ou quintal em volta:** sem `moldura`; o `teto` cobre só o prédio, e a vegetação e as luzes ficam do lado de fora (guia: "O lado de fora do prédio").
+
+#### Interior com a face das paredes aparecendo
+
+- **Como reconhecer:** o piso é reto, mas cada parede é uma faixa larga, com quadros, lousas ou janelas pintados nela.
+- **No arquivo:** cada parede é `{ "faixa": [x0, y0, x1, y1] }`, o retângulo inteiro da faixa. A porta fica num vão entre duas faixas, no meio da altura delas. Lousas e quadros voltam como `caixa` fina na frente da parede (guia: "Paredes com a face aparente").
+
+#### Planta em perspectiva
+
+- **Como reconhecer:** o contorno do prédio é um trapézio, os móveis encolhem para o fundo e as fileiras convergem.
+- **Preparo:** `endireitar.py` com os quatro cantos do piso (`--cantos`, `--conferir`; `--esticar` se o redondo sair oval). Depois, siga como "face aparente" (guia: "Planta em perspectiva").
+- **Não serve:** ilustração vista de dentro, com teto, horizonte ou ponto de fuga. Peça a planta reta de cima.
+
+#### Cena ao ar livre pequena (navio, cais, clareira, praia)
+
+- **Imagem:** a cena reta de cima.
+- **No arquivo:**
+  - **Céu e entorno:** `"ceuAberto": true`, sem `teto` nem `moldura`. `corEntorno` leva a cor da borda da imagem, que `grade.py` imprime.
+  - **Hora e água:** `hora` escolhe como o mapa abre; `"agua": true` se houver mar ou lago.
+  - **Luzes:** só onde há lampião ou tocha; acendem à noite.
+- **Escala:** pelas peças grandes (bote 3,5 a 4 m, canhão 1,7 m, barraca de feira 3 m).
+- **Navio, cais, palco:**
+  - **Pisos elevados:** `plataformas` erguem o convés e tudo o que está em cima dele. O casco leva `afunila`, `mureta` e `balanco`.
+  - **Peças:** `mastro`, `canhao`, `timao`.
+  - **Velas pintadas:** saem do chão com `apagar.py`.
+  - **Exemplo:** `navio_pirata` (guia: "Pisos elevados e navios").
+- **Morro:** camadas de `plataformas` com `encosta` (guia, mesma seção).
+
+#### Lugar inteiro com uma pintura só (cidade, vila, base)
+
+- **Imagem:** a vista aérea do lugar, com os prédios desenhados em pé. Ninguém entra nos prédios.
+- **No arquivo:**
+  - **Prédios:** cada telhado pintado vira um item de `predios`. `area` é o telhado; `fachada` serve em vista oblíqua; `silhueta`, para prédio com torres.
+  - **Muralhas:** `paredes` com `faixa`.
+  - **O resto:** árvores, pontes, postes e veículos como peças.
+  - **Muitas peças:** gere o arquivo com um script.
+- **Ferramentas:**
+  - `apagar.py --predios` tira do chão a pintura dos prédios;
+  - `relevo.py` ergue sebes e muretas pela cor;
+  - `espalhar.py` põe mata e postes.
+- **Exemplos:** `base_artica` e `cidade_feudal` (guia: "Lugar inteiro visto do alto").
+
+#### Cidade em camadas (o melhor resultado)
+
+- **Imagens:** o chão limpo, uma folha de cada prédio importante (frente, lateral, fundos e telhado) e um atlas de texturas. Os pedidos prontos estão na seção 2.
+- **Ferramentas:**
+  - `folha.py` acha as vistas de cada folha e imprime o trecho de `folhas`;
+  - `folha.py --alinhar` confere telhado e laterais;
+  - `folha.py --limpar` limpa folha em pergaminho;
+  - `espalhar.py` põe mata e postes.
+- **No arquivo:**
+  - **Chão:** o chão limpo é a `imagem`.
+  - **Prédios importantes:** cada um vai em `folhas`, no centro da laje pintada para ele e com a largura dela.
+  - **Casas pequenas:** itens de `predios` com as texturas do atlas.
+  - Guia: "Cidade em camadas".
+
+#### Mapa de batalha (com quadrícula)
+
+- **Escala:** meça a casa da grade antes de tirá-la. Muitas valem 1,5 m; meça várias e use a mediana.
+- **Preparo:**
+  - `quadricula.py` tira a grade. Use `--maximo 150` se ela for escura, `--agua` se sobrar na água e `--marcar` para ver o que saiu.
+  - A rosa dos ventos e os rótulos saem com `apagar.py --ladrilhar`; a moldura sai cortando a imagem.
+- Depois, siga o tipo da cena: interior ou ao ar livre.
+
+#### Mapa maior que a pintura (perseguição, mata em volta, partes afastadas)
+
+- Só se anda até 2 m além da borda da imagem. Aumente o chão, não a `escala`: com a escala, tudo cresce junto.
+- `ampliar.py` põe chão em volta da pintura.
+- `compor.py` espalha pedaços dela num chão grande, ligados por trilhas, e imprime a conta que leva as posições lidas na pintura para o chão novo.
+
+#### Vários andares e lugares ligados
+
+- Um mapa por andar ou por lugar, com `id` no formato `<local>_<parte>` (`predio_terreo`, `predio_andar2`).
+- `passagens` levam de um a outro (a escada, a porta do prédio), com a animação de porta, e cada mapa tem a sua `chegada`.
+
+#### Mapa desenhado para os jogadores
+
+- Uma versão sem segredos, no estilo de mapa de papel, entra em `imagemPlanta` e aparece no ângulo **Planta** (seção 6).
 
 ---
 
@@ -572,7 +684,7 @@ No Mac também serve `sips -s format png entrada.jpg --out saida.png`. Para sabe
 
 ## 8. Antes de publicar uma mudança
 
-Quem mexe no programa ou nas ferramentas roda `python3 ferramentas/testar.py` antes de publicar. Ele desenha imagens de teste e confere cada ferramenta nelas, compara o resultado com e sem numpy, valida os mapas de exemplo, abre cada mapa e o editor no navegador sem janela (o editor tem de salvar cada mapa sem perder nada), confere a campanha e tira uma foto 3D. Leva uns dois minutos; `--rapido` pula o navegador e `--todos` inclui os seus mapas. A página `ferramentas/teste_navegador.html` mostra a parte do navegador, se quiser ver.
+Quem mexe no programa ou nas ferramentas roda `python3 ferramentas/testar.py` antes de publicar. Ele desenha imagens de teste e confere cada ferramenta nelas, compara o resultado com e sem numpy, valida os mapas de exemplo, abre cada mapa e o editor no navegador sem janela (o editor tem de salvar cada mapa sem perder nada), confere a campanha e tira uma foto 3D. Leva menos de um minuto; `--rapido` pula o navegador e `--todos` inclui os seus mapas. A página `ferramentas/teste_navegador.html` mostra a parte do navegador, se quiser ver.
 
 ## 9. Limitações conhecidas
 

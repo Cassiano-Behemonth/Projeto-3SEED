@@ -6,6 +6,29 @@ Este projeto é uma semente de mapas 3D para RPG de mesa. O que mais se pede a u
 
 Os comandos abaixo usam `python3`; no Windows, use `py`. As imagens de conferência (grade, prévia, fotos) vão em `rascunho/`, que fica fora do git.
 
+## Primeiro uso
+
+O repositório funciona logo depois do `git clone`, sem instalar nada:
+
+- **Python 3.8 ou mais novo**, só a biblioteca padrão. Opcional: `python3 -m pip install numpy pillow` deixa as ferramentas pesadas de 5 a 10 vezes mais rápidas, com o mesmo resultado. Não instale nada sem a pessoa pedir.
+- **Rode os comandos da raiz do repositório.** Cada ferramenta explica o uso com `--help`, termina com código 1 quando dá erro e escreve a saída em UTF-8.
+- **Confira o ambiente** antes do primeiro trabalho: `python3 ferramentas/testar.py --rapido` (uns 10 s, só Python). Sem o `--rapido`, ele também abre o programa e o editor num navegador sem janela.
+- **Chrome, Chromium ou Edge:** só o `foto.py` e a parte de navegador do `testar.py` precisam de um deles. Sem navegador, todo o resto funciona; diga na entrega que não viu o mapa em 3D.
+- **Servidor:** as ferramentas não precisam dele (o `foto.py` liga e desliga um sozinho). `python3 servidor.py` fica rodando até Ctrl+C; se for usá-lo, rode em segundo plano.
+- **Arquivos da pessoa** (mapas dela, imagens, `src/campanha.js`) ficam fora do git. Num clone novo, só existem os três exemplos.
+
+| A pessoa pede | Ferramentas | Onde está o como |
+|---|---|---|
+| O mapa de uma planta, navio, cena ao ar livre ou cidade | `grade.py`, `validar.py`, `previa.py`, `foto.py` (e `endireitar.py`, `comparar.py`, `folha.py`) | Passo 0 e passo a passo, abaixo; `GUIA_DE_MAPAS.md` |
+| Tirar a grade de batalha da pintura | `quadricula.py`, `apagar.py --ladrilhar` | Regras, abaixo |
+| Chão maior, ou partes do lugar mais afastadas | `ampliar.py`, `compor.py` | Regras, abaixo |
+| Mata, postes, sebes, muretas | `espalhar.py`, `relevo.py` | `--help` de cada uma |
+| Personagem ou criatura com poses | `figuras.py` | `README.md`, seção 6 |
+| Objeto 3D (carro, carroça, barco) | `objeto.py` | `README.md`, seção 6 |
+| Vídeo de criatura ou de fundo, sons | ffmpeg (fora do projeto) | `README.md`, seção 7 |
+| Conferir criaturas e personagens | `validar_campanha.py` | `README.md`, seção 6 |
+| Mudar o programa ou as ferramentas | `testar.py` antes de entregar | `README.md`, seção 8 |
+
 ## Passo 0 — a imagem serve?
 
 Antes de qualquer outra coisa:

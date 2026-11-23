@@ -15,11 +15,13 @@ if not os.environ.get('SEED_SEM_PIL'):
     try: from PIL import Image as _PIL
     except ImportError: _PIL = None
 
-# Acentos e símbolos não quebram a saída quando ela vai para um arquivo ou para outro programa (no Windows, o console
-# redirecionado nem sempre aceita UTF-8): o que não couber vira "?".
-for _f in (sys.stdout, sys.stderr):
-    try: _f.reconfigure(errors='replace')
-    except (AttributeError, ValueError): pass
+# A saída sai sempre em UTF-8, também quando vai para um arquivo ou para outro programa (um assistente de IA no terminal
+# lê assim). Sem isso, no Windows ela sairia na codificação antiga do sistema, com os acentos trocados, e um símbolo
+# fora dela derrubaria a ferramenta. Quem precisar de outra codificação define PYTHONIOENCODING.
+if not os.environ.get('PYTHONIOENCODING'):
+    for _f in (sys.stdout, sys.stderr):
+        try: _f.reconfigure(encoding='utf-8', errors='replace')
+        except (AttributeError, ValueError): pass
 
 
 def tamanho_png(caminho):

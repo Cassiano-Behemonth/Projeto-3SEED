@@ -7,7 +7,7 @@ Este projeto é uma semente: cada interior é um **mapa em arquivo** (`mapas/<id
 - **No editor:** abra `http://127.0.0.1:5173/editor.html` (ou o botão "Editor" na tela principal). Envie a imagem da planta, meça a escala com "Medir escala", desenhe paredes e portas, marque as salas ocultas, coloque móveis, luzes, câmeras, a chegada e as passagens. "Salvar" grava o arquivo em `mapas/` e "Ver em 3D" abre o resultado. Gravar exige o servidor local (`python3 servidor.py`); sem ele o editor baixa o arquivo para você colocar na pasta.
 - **Escrevendo o arquivo**, à mão ou com uma IA: siga este guia. Um mapa escrito assim abre no editor para ajustes, e vice-versa.
 
-**Antes de criar:** `README.md` diz que imagens preparar para cada tipo de lugar e traz os pedidos prontos para a IA de imagem. Para uma cidade inteira, peça em camadas: o chão limpo e uma folha de cada construção.
+**Antes de criar:** `README.md` diz que imagens preparar para cada tipo de lugar, traz os pedidos prontos para a IA de imagem e, em "Cada tipo de mapa", o roteiro de cada tipo (interior, perspectiva, navio, lugar inteiro, cidade em camadas, mapa de batalha, mapa maior que a pintura), com as ferramentas na ordem. Para uma cidade inteira, peça em camadas: o chão limpo e uma folha de cada construção.
 
 **Pedindo a uma IA:** coloque a imagem em `assets/interiores/` e peça o mapa. As instruções que ela segue estão em `AGENTS.md`. O resultado é uma primeira versão; a posição das portas e a escala são onde ela mais erra, e o editor serve para corrigir. Plantas desenhadas em perspectiva ela endireita antes; ilustrações (cenas vistas de dentro) ela **recusa** e explica por quê.
 
